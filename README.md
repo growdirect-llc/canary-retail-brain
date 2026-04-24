@@ -29,12 +29,12 @@ access acknowledgment.
 
 - Client-specific engagement material
 - Runtime code (that's in `~/GrowDirect/Canary/`)
-- Methodology (that's in `~/KATZ/`)
+- Methodology (that's in `~/CATz/`)
 - Internal operational Brain
 
 ## Authoring rules
 
-Same as KATZ:
+Same as CATz:
 1. No client names
 2. No former-company references
 3. All attribution to GrowDirect LLC / Canary Retail
@@ -50,7 +50,8 @@ GrowDirect LLC. See `NOTICE.md` for the confidentiality notice.
 
 ## Siblings
 
-- `~/KATZ/` — methodology vault
+- `~/CATz/` — Canary Agent Taskforce: GrowDirect's methodology
+  vault (agent-native delivery framework)
 - `~/GrowDirect/Canary/` — the Canary Retail product code
 
 Contact: contact@growdirect.io

@@ -40,7 +40,7 @@ directory.
 ## Cross-vault references
 
 - Internal GrowDirect Brain references external vault articles
-  where appropriate. External vaults (KATZ, Canary-Retail-Brain)
+  where appropriate. External vaults (CATz, Canary-Retail-Brain)
   NEVER reference internal GrowDirect Brain by path. If internal
   context is needed, abstract it first.
 - Wikilinks within this vault are relative to the vault root.

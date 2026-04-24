@@ -70,6 +70,6 @@ specialty retailers with online footprint.
 
 ## Siblings
 
-- `~/KATZ/` — methodology vault (how GrowDirect designs and
-  delivers)
+- `~/CATz/` — Canary Agent Taskforce: GrowDirect's methodology
+  vault (how GrowDirect designs and delivers — agent-native)
 - `~/GrowDirect/Canary/` — product code

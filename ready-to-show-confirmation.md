@@ -59,6 +59,6 @@ The overview sells; the spine proves the platform is exhaustively scoped; the CR
 ## Minor observations (non-blocking)
 
 1. **Legal-document frontmatter.** NOTICE.md and ACKNOWLEDGMENT.md lack the `classification: confidential` / `owner: GrowDirect LLC` frontmatter. Task spec accepted README.md as exception; applying the same courtesy to NOTICE and ACKNOWLEDGMENT is reasonable (they are themselves the confidentiality notices). If strict compliance with CONTRIBUTING rule 6 is preferred, add the frontmatter block to both.
-2. **Cross-vault wikilink.** `platform/spine-13-prefix.md` line 78 uses a wikilink to `../../KATZ/cbm-v2/agent-strategy`. CONTRIBUTING rule "Cross-vault references" specifies cross-vault links should use prose, not wikilinks (vaults open separately). Swap to prose ("see the KATZ CBM v2 Agent Strategy article") if strict compliance is desired.
+2. **Cross-vault wikilink.** `platform/spine-13-prefix.md` line 78 uses a wikilink to `../../CATz/cbm-v2/agent-strategy`. CONTRIBUTING rule "Cross-vault references" specifies cross-vault links should use prose, not wikilinks (vaults open separately). Swap to prose ("see the CATz CBM v2 Agent Strategy article") if strict compliance is desired.
 
 Neither observation blocks showing the vault. Both are 30-second fixes if you want a clean bill.
