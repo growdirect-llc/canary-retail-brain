@@ -74,6 +74,45 @@ Other modules ship on the v2 and v3 roadmaps (see
 6. **Evidence-first.** Hash-chained from webhook intake through
    case timeline. Compliance posture is designed in, not added.
 
+## The SMB collapse — what the evidence shows
+
+Canary Retail's platform thesis is that the classical enterprise
+retail decomposition (distinct catalog hub, pricing engine, cart,
+checkout, subscription, inventory, tax, shipping, fulfillment, and
+POS systems) compresses into one operational app for SMB specialty
+retailers — without losing capability.
+
+The evidence is [[worked-example-solex|a live worked example]]: a
+minimal, single-merchant, single-channel e-commerce reference
+running against a real payment processor, observed end-to-end by
+Canary Retail's detection engine. Coverage assessment across the
+canonical retail capability surface produces three observations:
+
+1. **Multi-Channel and Corporate Finance compress cleanly.** A
+   single well-built e-commerce app gives you nearly the full
+   canonical report set for both. The enterprise reference assumed
+   call-center + catalog division-of-labor; in SMB, the e-commerce
+   app is the channel, and the order is the financial transaction.
+2. **Customer compresses well.** Authenticated customers + order
+   history + subscription state covers most Customer capabilities.
+   The gaps (credit risk, delinquency, lead, market) are gaps the
+   payment processor handles or that don't apply at SMB scale.
+3. **Merchandising and Store Ops are where the missing
+   operational schemas surface.** The gaps in Merchandising
+   (multi-location inventory, on-order, planogram, assortment-
+   allocation) and Store Ops (vendor, staffing, multi-store) are
+   exactly the gaps that [[spine-13-prefix|the Canary Retail module
+   spine]] closes — and they're precisely the gaps that motivate
+   the non-Differentiated-Five modules (C / D / F / J / S / P /
+   L / W).
+
+**The corollary.** An SMB doesn't need a separate system for each
+gap. A single well-modeled operational app populates ~70% of the
+capability surface. The remaining 30% is either out-of-scope for
+SMB scale, processor-handled, or addressable by extending the same
+operational schema rather than building a separate system. That's
+the platform.
+
 ## Positioning against alternatives
 
 - **Against a POS** — Canary Retail sits above the POS, not instead

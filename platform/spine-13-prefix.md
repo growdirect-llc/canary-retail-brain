@@ -54,12 +54,54 @@ also handle our buying, inventory movement, and financial flow?"
 These four modules answer that question without pulling the
 retailer toward an ERP replacement.
 
+Each v2 prefix closes a specific operational gap the SMB collapse
+analysis surfaces in [[worked-example-solex]]:
+
+- **C — Commercial.** The Solex reference is single-channel and
+  single-catalog; its Assortment / Allocation coverage is partial
+  (no multi-store, no zone-differentiated assortment). C closes
+  the commercial catalog, department, and supplier dimensions for
+  multi-store retailers.
+- **D — Distribution.** Solex is single-warehouse. The canonical
+  retail model assumes warehouse + store + transit inventory tiers
+  with transfers between them. D closes the multi-location
+  inventory gap.
+- **F — Finance.** Solex collapses vendor-side finance into
+  "payment-processor fees + bank receipts." F closes the vendor
+  surface: purchase orders, supplier invoices, reconciliation,
+  vendor compliance, rebate and chargeback flows.
+- **J — Forecast & Order.** Solex has no PO / replenishment
+  surface; on-order inventory is missing from the coverage. J
+  closes the forecast and ordering loop, restoring the open-order
+  dimension and enabling automated replenishment.
+
 ## v3 — Full spine (S + P + L + W)
 
 Space/range/display, pricing/promotion, labor/workforce, and
 generalized work-execution across all domains. This is the full
-retail operating platform, delivered module-by-module rather than as
-a single cutover.
+retail operating platform, delivered module-by-module rather than
+as a single cutover.
+
+Each v3 prefix closes a remaining operational gap:
+
+- **S — Space, Range, Display.** Solex is online-only; physical
+  merchandising and space management are absent. S closes the
+  planogram, fixture, and floor-plan gap for the retailers that
+  operate physical stores.
+- **P — Pricing & Promotion.** Solex has a promo-code dimension
+  but the promotion engine itself is stubbed. P extends this into
+  a full promotion engine: bundle rules, threshold promotions,
+  conditional offers, markdown cadence, pricing-elasticity
+  analysis.
+- **L — Labor & Workforce.** Solex has no employee surface.
+  Staffing, Store Location Analysis, and Staffing coverage are
+  all zero. L closes the labor model: scheduling, time tracking,
+  payroll integration, workforce analytics.
+- **W — Work Execution.** Solex produces clean Loss Prevention
+  signal through Chirp/Fox. W generalizes that detection + case
+  pattern beyond LP to every other domain in the spine — exception
+  handling for merchandising discrepancies, labor anomalies,
+  vendor-performance breaches, and asset-condition drift.
 
 ## Dependencies
 
