@@ -1,0 +1,16 @@
+# Obsidian user-local state (per-machine, not vault content)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/graph.json
+.obsidian/app.json
+.obsidian/appearance.json
+.obsidian/plugins/
+.obsidian/community-plugins.json
+.smart-env
+
+# macOS
+.DS_Store
+
+# Editor scratch
+*.swp
+.~lock.*
