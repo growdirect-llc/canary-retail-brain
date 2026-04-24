@@ -74,9 +74,8 @@ Modules depend on:
   timelines underlie all modules; Q and W depend on it most
   directly.
 - **Agent mesh** — every module has an agent population backing its
-  tooling (see
-  [[../../KATZ/cbm-v2/agent-strategy|KATZ CBM v2 — Agent Strategy]]
-  for the cross-vault reference).
+  tooling. The agent mesh architecture lives in the KATZ vault
+  (`cbm-v2/agent-strategy.md`) — open the sibling vault to read it.
 
 ## Per-module detail
 
