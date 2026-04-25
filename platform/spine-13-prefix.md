@@ -19,7 +19,7 @@ from customer-facing commerce through back-office governance.
 | **T** | Transaction Pipeline | v1 (shipping) | POS-agnostic ingestion; seal → parse → merkle → detect |
 | **R** | Customer | v1 (shipping) | ARTS Customer Model; unified customer entity |
 | **N** | Device | v1 (shipping) | ARTS Device Model; asset registry for POS / scanners / IoT |
-| **A** | Asset Management | v1 (shipping) | Bubble — anomaly detection over the asset registry |
+| **A** | Asset Management | v1 (design — implementation pending) | Bubble — anomaly detection over the asset registry |
 | **Q** | Loss Prevention | v1 (shipping) | Detection engine + case management |
 | **C** | Commercial | v2 | Items, departments, suppliers |
 | **D** | Distribution | v2 | Inventory movement, store-DC transfers |
