@@ -1,0 +1,24 @@
+prefix: J
+name: forecast-order
+version: v2
+status: design
+purpose: "Demand forecasting, replenishment-point calculation, and automated PO recommendation constrained by OTB headroom."
+
+ledger_relationship:
+  role: subscriber
+  verbs: [receipt, sale, return, rTV, adjustment]
+  impact: "J is SUBSCRIBER for movement history and PUBLISHER of PO recommendations. Reads ledger to forecast demand; outputs recommendations to F."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns demand signal + forecast + ROP; merchant tool owns long-range merchandise planning and buyer approval."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Package-integration to merchant ERP — rejected: most SMBs lack ERP; Canary must own"
+  adr_reference: null
+
+status_notes: |
+  v2 design. Demand forecasting (velocity + variance), ROP/EOQ calculation, and PO recommendation generation are in scope.
+  MCP tools for planner/buyer workflows deferred to implementation phase. Advanced features (seasonal decomposition, ML modeling,
+  multi-location allocation optimization) deferred to v3+.

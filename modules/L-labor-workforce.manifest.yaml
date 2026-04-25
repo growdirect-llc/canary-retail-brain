@@ -1,0 +1,23 @@
+prefix: L
+name: labor-workforce
+version: v3
+status: design
+purpose: "Scheduling, time tracking, payroll export touchpoints, and labor productivity analytics with employee profile management."
+
+ledger_relationship:
+  role: publisher
+  verbs: []
+  impact: "L is PUBLISHER of time-entry events (clock in/out, breaks, absences) that feed payroll export. Reads T's transactions for productivity calculation."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns time-clock entries + scheduled-shift movements; merchant tool owns payroll calculation and tax filing (Gusto, Paychex, ADP)."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native payroll engine — rejected: Canary has no payroll expertise; merchant tools are proven"
+  adr_reference: null
+
+status_notes: |
+  v3 design. Scheduling, time tracking, and payroll export are in scope. Labor productivity analytics and schedule-adherence
+  reporting deferred to implementation phase. Workforce planning and demand-driven scheduling (integration with J) deferred to v4.

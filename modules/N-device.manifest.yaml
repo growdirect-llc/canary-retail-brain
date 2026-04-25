@@ -1,0 +1,23 @@
+prefix: N
+name: device
+version: v1
+status: shipping
+purpose: "Device registry and telemetry stream for POS terminals, scanners, and IoT sensors with identity and operational state."
+
+ledger_relationship:
+  role: n/a
+  verbs: []
+  impact: "N is a Things registry that mirrors vendor device state. No direct ledger movements; N is the FK target for device-conditioned transaction context."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns device registry + telemetry; merchant tool owns MDM (Jamf, Kandji) and device procurement."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native device master — rejected: merchants already manage MDM; N is observation layer only"
+  adr_reference: null
+
+status_notes: |
+  v1 shipping as of 2026-04-24. Model and schema production-ready; live Square sync gated on OAuth scope expansion.
+  Full MCP-tools and telemetry-dashboard layers deferred to implementation phase.

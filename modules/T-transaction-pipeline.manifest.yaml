@@ -1,0 +1,486 @@
+prefix: T
+name: transaction-pipeline
+version: v1
+status: shipping
+purpose: "POS-agnostic ingest, seal, and stream of retail transactions with hash-chain integrity and perpetual-ledger publisher role."
+
+entities:
+  - name: transactions
+    schema: sales
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Unique identifier from source system (Square payment/refund ID)"
+      - name: transaction_date
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: transaction_type
+        type: TEXT
+        nullable: false
+        description: "PAYMENT | REFUND | VOID | NO_SALE | PAID_IN | PAID_OUT | EXCHANGE"
+      - name: location_id
+        type: UUID
+        nullable: false
+      - name: device_id
+        type: UUID
+        nullable: false
+      - name: employee_id
+        type: UUID
+        nullable: true
+      - name: customer_id
+        type: UUID
+        nullable: true
+      - name: amount_cents
+        type: INTEGER
+        nullable: false
+      - name: refund_amount_cents
+        type: INTEGER
+        nullable: true
+      - name: fee_cents
+        type: INTEGER
+        nullable: true
+      - name: source_type
+        type: TEXT
+        nullable: false
+        default: "'WEBHOOK'"
+        description: "WEBHOOK | POLLING | BATCH"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_transactions_merchant_date
+        columns: [merchant_id, transaction_date]
+        unique: false
+      - name: idx_transactions_external_id
+        columns: [external_id, merchant_id]
+        unique: true
+      - name: idx_transactions_location
+        columns: [location_id, transaction_date]
+        unique: false
+    write_pattern: insert-only
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        detail: "Foreign key to app.merchants(id); enforces tenant isolation"
+        enforcement: "database-trigger"
+      - type: fk
+        columns: [location_id]
+        detail: "Foreign key to app.merchant_locations(id); validates location exists"
+        enforcement: "database-trigger"
+      - type: fk
+        columns: [device_id]
+        detail: "Foreign key to app.merchant_devices(id); validates device exists"
+        enforcement: "database-trigger"
+      - type: unique
+        columns: [external_id, merchant_id]
+        detail: "Ensures idempotency; external_id is unique per merchant"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [amount_cents]
+        detail: "amount_cents >= 0; prevents negative transactions at write time"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [amount_cents, refund_amount_cents]
+        detail: "INSERT-only ledger; no updates or deletes post-insertion"
+        enforcement: "database-trigger"
+
+  - name: transaction_line_items
+    schema: sales
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: transaction_id
+        type: UUID
+        nullable: false
+      - name: catalog_object_id
+        type: TEXT
+        nullable: false
+        description: "SKU identifier from Square catalog or internal item master"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: quantity
+        type: DECIMAL(10, 2)
+        nullable: false
+      - name: unit_price_cents
+        type: INTEGER
+        nullable: false
+      - name: gross_sales_cents
+        type: INTEGER
+        nullable: false
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_transaction_line_items_transaction
+        columns: [transaction_id]
+        unique: false
+      - name: idx_transaction_line_items_catalog
+        columns: [catalog_object_id]
+        unique: false
+    write_pattern: insert-only
+    integrity_constraints:
+      - type: fk
+        columns: [transaction_id]
+        detail: "Foreign key to transactions(id); cascades on parent delete (v2+)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [quantity]
+        detail: "quantity > 0; prevents zero or negative line quantities"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [unit_price_cents, gross_sales_cents]
+        detail: "Line-item cost and price are immutable post-insert"
+        enforcement: "database-trigger"
+
+  - name: transaction_tenders
+    schema: sales
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: transaction_id
+        type: UUID
+        nullable: false
+      - name: tender_type
+        type: TEXT
+        nullable: false
+        description: "CARD | CASH | GIFT_CARD | CHECK | OTHER"
+      - name: amount_cents
+        type: INTEGER
+        nullable: false
+      - name: card_brand
+        type: TEXT
+        nullable: true
+        description: "VISA | MASTERCARD | AMEX | DISCOVER | etc. (if tender_type=CARD)"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_transaction_tenders_transaction
+        columns: [transaction_id]
+        unique: false
+    write_pattern: insert-only
+    integrity_constraints:
+      - type: fk
+        columns: [transaction_id]
+        detail: "Foreign key to transactions(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [amount_cents]
+        detail: "amount_cents >= 0"
+        enforcement: "database-constraint"
+
+  - name: evidence_records
+    schema: sales
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_event_id
+        type: TEXT
+        nullable: false
+      - name: raw_bytes_hash
+        type: TEXT
+        nullable: false
+        description: "SHA256 hash of raw bytes as received (before parsing)"
+      - name: raw_bytes_b64
+        type: TEXT
+        nullable: false
+        description: "Base64-encoded raw event payload (for replay/audit)"
+      - name: event_timestamp
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        description: "Timestamp from event source (Square webhook timestamp)"
+      - name: chain_hash
+        type: TEXT
+        nullable: false
+        description: "Hash chain anchoring this event to prior event(s)"
+      - name: ingestion_status
+        type: TEXT
+        nullable: false
+        default: "'RECEIVED'"
+        description: "RECEIVED | PARSED | FAILED | COMPLETED"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_evidence_records_merchant_external
+        columns: [merchant_id, external_event_id]
+        unique: true
+      - name: idx_evidence_records_timestamp
+        columns: [merchant_id, event_timestamp]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        detail: "Foreign key to app.merchants(id); tenant isolation"
+        enforcement: "database-trigger"
+      - type: unique
+        columns: [merchant_id, external_event_id]
+        detail: "Idempotency: one evidence record per external event per merchant"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [raw_bytes_hash, chain_hash]
+        detail: "Hash values never change post-insertion; audit trail immutable"
+        enforcement: "database-trigger"
+
+  - name: ingestion_log
+    schema: sales
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: evidence_record_id
+        type: UUID
+        nullable: false
+      - name: step
+        type: TEXT
+        nullable: false
+        description: "SEAL | PARSE | MERKLE | COMPLETE"
+      - name: status
+        type: TEXT
+        nullable: false
+        description: "SUCCESS | FAILED | PENDING"
+      - name: error_message
+        type: TEXT
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_ingestion_log_evidence
+        columns: [evidence_record_id, step]
+        unique: false
+    write_pattern: insert-only
+
+ledger_relationship:
+  role: publisher
+  verbs:
+    - sale
+    - return
+  impact: "T publishes every Square transaction (payment, refund, void) as a ledger movement (sale or return with quantity/value/time), keyed to item × location. These movements feed downstream subscribers (D, F, J, S) and reconcilers (W)."
+
+accounting_relationship:
+  otb_role: n/a
+  valuation_method_owner: false
+  cost_method_publisher: false
+  margin_calc_contributor: true
+
+arts_alignment:
+  poslog_adoption: "T translates Square payloads into POSLog canonical schema: RetailTransaction, LineItem, Tender. External API boundary preserves POSLog field names."
+  customer_model_alignment: true
+  device_model_alignment: true
+  site_model_alignment: true
+  notes: "Square does not expose all POSLog fields (e.g., RegisterID is mapped to device_id); gaps documented in schema crosswalk."
+
+integrations:
+  upstream:
+    - module: N
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "T validates device_id references; N owns device registry"
+    - module: R
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "T validates customer_id references; R owns customer entity"
+  downstream:
+    - module: Q
+      relationship: "publishes_to_me"
+      verbs: [sale, return]
+      detail: "Q consumes T's sales/returns to fire detection rules (Chirp)"
+    - module: D
+      relationship: "I_reference"
+      verbs: []
+      detail: "D reads T for reconciliation against receipt/transfer history"
+    - module: F
+      relationship: "publishes_to_me"
+      verbs: [sale, return]
+      detail: "F consumes T to derive margin, GL posting, income reporting"
+    - module: A
+      relationship: "publishes_to_me"
+      verbs: []
+      detail: "A reads T transaction stream to detect device/cashier anomalies"
+    - module: W
+      relationship: "publishes_to_me"
+      verbs: [sale, return]
+      detail: "W (v3+) reads T for generalized detection + work assignment"
+
+mcp_tools:
+  - name: chirp
+    signature: "get_sales_summary(merchant_id, date_range) -> {sales_dollars, refund_count, refund_rate, transaction_count, payment_mix}"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+        description: "Tenant identifier"
+      - name: date_range
+        type: DateRange
+        required: true
+        description: "Start and end date for summary"
+    returns:
+      - name: sales_dollars
+        type: Decimal
+        description: "Gross sales in merchant currency"
+      - name: refund_count
+        type: Integer
+        description: "Number of refunds"
+      - name: refund_rate
+        type: Decimal
+        description: "Refunds as % of transaction count"
+      - name: transaction_count
+        type: Integer
+        description: "Total transactions"
+      - name: payment_mix
+        type: Dict
+        description: "Breakdown by tender type (card, cash, gift_card, etc.)"
+    idempotency: idempotent
+    rate_limit: "1000 calls/minute"
+
+  - name: get_transaction_detail
+    signature: "get_transaction_detail(transaction_id) -> Transaction"
+    params:
+      - name: transaction_id
+        type: UUID
+        required: true
+    returns:
+      - name: Transaction
+        type: Object
+        description: "Full transaction record with line items, tenders, amounts"
+    idempotency: idempotent
+
+  - name: search_transactions
+    signature: "search_transactions(merchant_id, filters) -> [Transaction]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: filters
+        type: Object
+        required: false
+        description: "Optional: date_range, location_id, device_id, transaction_type, min_amount, max_amount"
+    returns:
+      - name: transactions
+        type: Array[Transaction]
+        description: "Matching transactions (paginated, max 1000 per call)"
+    idempotency: idempotent-on-key
+
+  - name: publish_refund
+    signature: "publish_refund(transaction_id, refund_reason) -> Refund"
+    params:
+      - name: transaction_id
+        type: UUID
+        required: true
+      - name: refund_reason
+        type: String
+        required: true
+        description: "Reason for refund (salable, defect, wrong_item, etc.)"
+    returns:
+      - name: Refund
+        type: Object
+        description: "Refund record with ID, amount, reason"
+    idempotency: not-idempotent
+    note: "Publishes RETURN movement to stock ledger"
+
+agent_role_bindings:
+  - agent: canary-vsm
+    capabilities:
+      - "Daily sales summary"
+      - "Transaction search and detail"
+      - "Refund history and pattern analysis"
+      - "Payment method mix reporting"
+      - "Cashier/device transaction attribution"
+
+dependencies:
+  modules:
+    - prefix: N
+      read_only: true
+      verbs: []
+      detail: "Device registry validation"
+    - prefix: R
+      read_only: true
+      verbs: []
+      detail: "Customer entity validation"
+    - prefix: Q
+      read_only: false
+      verbs: [sale, return]
+      detail: "Q subscribes to T's sales/returns"
+    - prefix: F
+      read_only: false
+      verbs: [sale, return]
+      detail: "F subscribes to T for margin/GL"
+  external:
+    - service: "Square Webhooks API"
+      endpoint: "POST /webhook/square"
+      rate_limit: "10,000 events/minute per merchant (Square platform limit)"
+    - service: "Square Transactions API"
+      endpoint: "GET /v2/locations/{location_id}/transactions"
+      rate_limit: "100 calls/minute (Square API limit)"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "Square OAuth token required for polling/backfill; webhook HMAC signature verification"
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; queries enforce merchant_id filter at application layer"
+  pii_handling:
+    categories:
+      - customer-email (optional on loyalty, not exposed in core transaction)
+      - customer-phone (optional on loyalty)
+      - employee-ssn (not stored; employee_id reference only)
+    retention_days: 2555
+    encryption: true
+    detail: "Customer PII encrypted at rest; deleted after 7 years per PCI scope"
+
+implementation_route:
+  primary: legacy-native
+  rationale: "T owns ledger-grade transaction sealing (HMAC + raw-byte hash + per-merchant evidence chain) — no merchant-side equivalent exists. The transaction pipeline IS the perpetual-ledger publisher; there is nothing to integrate with."
+  perpetual_owner: canary
+  period_owner: canary
+  alternatives_considered:
+    - "package-integration via Square Transactions API alone — rejected: no chain-of-custody seal, no ordering guarantee, no Merkle anchor surface"
+    - "integrated-hybrid where Square owns transaction state and Canary subscribes — rejected: same chain-of-custody gap; Canary cannot prove non-tampering without raw-byte hash before parse"
+  adr_reference: null
+  notes: |
+    T is the canonical example of a legacy-native route. The other 12 modules
+    on the spine should default to integrated-hybrid (per the Morrisons v2.F
+    ADR establishment). T is the exception because the perpetual-ledger
+    integrity guarantee is the product itself at this layer.
+
+status_notes: |
+  v1 shipping as of 2026-04-24. Covers Square webhooks, polling backfill,
+  and batch import. Parser handles 6 Square event types: payment, refund,
+  order, loyalty, payout, dispute. Hash chain implemented; Bitcoin anchor
+  (v2 roadmap). Shopify/Clover adapters in v2 design.

@@ -1,0 +1,23 @@
+prefix: R
+name: customer
+version: v1
+status: shipping
+purpose: "Unified customer identity and behavioral signals projected from transaction stream without PII storage."
+
+ledger_relationship:
+  role: n/a
+  verbs: []
+  impact: "R is a People registry that derives customer state from T's transaction stream. No direct ledger movements published; R reads to compute lifetime value, transaction counts, temporal bounds."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns unified identity + behavioral signals; merchant tool owns CRM/loyalty campaign execution and contact management."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native equivalent — rejected: merchants already run Klaviyo/Mailchimp for loyalty"
+  adr_reference: null
+
+status_notes: |
+  v1 shipping as of 2026-04-24. Minimal posture: no PII at rest, aggregate metrics only.
+  Full entity/schema/MCP-tools layers deferred to implementation phase.

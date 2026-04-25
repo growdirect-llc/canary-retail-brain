@@ -1,0 +1,23 @@
+prefix: A
+name: asset-management
+version: v1
+status: design
+purpose: "Per-device anomaly detection (Bubble) via baseline modeling and multivariate drift signals against device registry."
+
+ledger_relationship:
+  role: n/a
+  verbs: []
+  impact: "A is a projection-and-detection layer over T's events and N's registry. Publishes anomaly signals to Q; owns no entities."
+
+implementation_route:
+  primary: legacy-native
+  rationale: "No merchant-side equivalent at SMB tier for per-device anomaly detection; Canary owns the full surface."
+  perpetual_owner: canary
+  period_owner: canary
+  alternatives_considered:
+    - "Merchant MDM provider — rejected: MDM systems do not perform transaction-anomaly detection"
+  adr_reference: null
+
+status_notes: |
+  v1 design (implementation pending). Architectural commitment is real; infrastructure scaffold (baseline_calculator, metrics tables, N registry)
+  is in place. Bubble detection layer and per-device baseline MCP tools deferred to implementation phase.

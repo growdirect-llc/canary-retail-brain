@@ -1,0 +1,24 @@
+prefix: D
+name: distribution
+version: v2
+status: design
+purpose: "Inventory movements across retail organization: receipts, transfers, RTVs, adjustments, cycle-count reconciliation as primary stock-ledger publisher."
+
+ledger_relationship:
+  role: publisher
+  verbs: [receipt, transfer, rTV, adjustment, cycle_count, allocation]
+  impact: "D is the PRIMARY PUBLISHER of stock-ledger movements. Every receipt, transfer, RTV, adjustment, and cycle-count originates in D."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns receipt/transfer/RTV/adjustment movements; merchant tool owns inventory-valuation period close and accounting treatment."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native with no merchant integration — rejected: merchants already use WMS or manual receiving; D bridges to ledger"
+  adr_reference: null
+
+status_notes: |
+  v2 design. Receipt, transfer, RTV, adjustment, and cycle-count movement schemas are in scope.
+  PO matching, in-transit inventory, and receipt-authorization workflows deferred to implementation phase.
+  Reclassification movement and multi-location allocation deferred to v3.

@@ -1,0 +1,25 @@
+prefix: F
+name: finance
+version: v2
+status: design
+purpose: "Purchase orders, supplier invoices, three-way match reconciliation, cost-method ownership, and period-close GL posting."
+
+ledger_relationship:
+  role: reconciler
+  verbs: [cost_update, reclassification]
+  impact: "F is RECONCILER and CO-ANALYST for OTB. Publishes cost-variance adjustments to stock ledger; owns cost-method choice and GL posting."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns 3-way invoice match + COGS posting events; merchant tool owns GL, A/P, A/R, P&L (QuickBooks, Xero, Wave)."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native GL — rejected: 28 eng-years, no merchant adoption, GL audit liability on Canary"
+    - "Package-integration to QBO/Xero only — rejected: less flexible than hybrid; higher API dependency"
+  adr_reference: "Canary-Retail-Brain/case-studies/canary-finance-architecture-options.md"
+
+status_notes: |
+  v2 design per v2.F ADR (Option C — Integrated Hybrid). PO tracking, supplier invoicing, 3-way match, and cost-method (Cost Method only, not RIM)
+  are in scope. Cost-variance GL posting via OAuth bridge to QBO/Xero/Wave. RIM support deferred to v3.
+  Perpetual GL reconciliation reporting deferred to v2.1.

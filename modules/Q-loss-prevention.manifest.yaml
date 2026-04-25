@@ -1,0 +1,24 @@
+prefix: Q
+name: loss-prevention
+version: v1
+status: shipping
+purpose: "Transaction-level anomaly detection (Chirp) and case management (Fox) for loss-prevention investigations with evidence chain."
+
+ledger_relationship:
+  role: reconciler
+  verbs: [sale, return]
+  impact: "Q is a Workflow factory that derives Cases from T's transaction stream. Chirp evaluates 37 frozen detection rules; Fox manages case lifecycle."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns detection (Chirp) + case management (Fox); merchant tool owns insurance claims, restitution tracking, HR actions."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native — rejected: merchants already integrate with insurance, HR, accounting for LP outcomes"
+  adr_reference: null
+
+status_notes: |
+  v1 shipping as of 2026-04-24. Detection rule catalog frozen at 37 rules across 10 categories.
+  Fox case management with INSERT-only evidence chains enforced at trigger layer.
+  Advanced detection features (ML models, cross-merchant pattern detection) deferred to v2.

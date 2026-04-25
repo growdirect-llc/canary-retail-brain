@@ -1,0 +1,24 @@
+prefix: C
+name: commercial
+version: v2
+status: design
+purpose: "Item and merchandising catalog, supplier master, cost-update events, and Open-to-Buy enforcement across retail organization."
+
+ledger_relationship:
+  role: publisher
+  verbs: [cost_update, reclassification]
+  impact: "C publishes cost-update events to stock ledger when supplier landed cost changes. Co-owner of OTB calculation with F and J."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns SKU/supplier identity + cost-update events; merchant tool owns supplier contract management and long-term commercial planning."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Package-integration into merchant ERP — rejected: most SMBs lack ERP; Canary must own this layer"
+  adr_reference: null
+
+status_notes: |
+  v2 design. Item master, hierarchy, supplier linkage, cost/retail attributes are in scope.
+  Cost-update event pipeline and OTB validation logic deferred to implementation phase.
+  Reclassification event handling (cost-method migration) deferred to v3.

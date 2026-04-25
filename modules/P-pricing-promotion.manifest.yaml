@@ -1,0 +1,23 @@
+prefix: P
+name: pricing-promotion
+version: v3
+status: design
+purpose: "Promotion engine, markdown management, pricing-elasticity tracking, and price-change events that revalue ledger."
+
+ledger_relationship:
+  role: publisher
+  verbs: [price_change, markdown]
+  impact: "P is PUBLISHER of price-change and markdown events to stock ledger. Co-owner of markdown governance with C and F."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns markdown + price-change events; merchant tool owns POS price display and long-term pricing strategy."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native pricing engine — rejected: merchants control pricing strategy; Canary is signal layer only"
+  adr_reference: null
+
+status_notes: |
+  v3 design. Promotion engine (bundles, thresholds, conditional offers), markdown management, and elasticity tracking are in scope.
+  Multi-channel price reconciliation deferred to implementation phase. Predictive markdown timing (ML) deferred to v4.

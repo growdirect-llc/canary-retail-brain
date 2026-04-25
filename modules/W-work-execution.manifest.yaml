@@ -1,0 +1,24 @@
+prefix: W
+name: work-execution
+version: v3
+status: design
+purpose: "Cross-domain exception detection and case management generalizing Q's Chirp+Fox pattern across entire retail spine."
+
+ledger_relationship:
+  role: reconciler
+  verbs: []
+  impact: "W is RECONCILER and CROSS-DOMAIN ANALYZER. Reads all spine modules' exception signals; publishes aggregated cases and escalations."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns cross-domain exception detection + case management; merchant tool owns compliance reporting and external-audit integration."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native — rejected: existing systems are domain-siloed; W's innovation is cross-domain pattern detection"
+  adr_reference: null
+
+status_notes: |
+  v3 design. Cross-domain exception rules (LP, space, pricing, labor, distribution, forecast), auto-escalation policies, and case
+  aggregation are in scope. MCP tool surfaces and investigator workflows deferred to implementation phase.
+  Cross-merchant pattern detection and ML-driven escalation deferred to v4+.

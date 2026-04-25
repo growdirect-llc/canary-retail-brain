@@ -1,0 +1,24 @@
+prefix: S
+name: space-range-display
+version: v3
+status: design
+purpose: "Planogram authoring, fixture inventory, shelf-edge label compilation, and ordering-gate enforcement per location and zone."
+
+ledger_relationship:
+  role: subscriber
+  verbs: []
+  impact: "S is SUBSCRIBER and GATEKEEPER. Reads current SOH to validate planogram capacity; enforces ordering gate (item must have planogram assignment before receipt)."
+
+implementation_route:
+  primary: integrated-hybrid
+  rationale: "Canary owns planogram authoring + ordering gate; merchant tool owns capital fixture planning and capex allocation."
+  perpetual_owner: canary
+  period_owner: merchant-system
+  alternatives_considered:
+    - "Legacy-native — rejected: merchants manage physical layout via real-estate/ops; Canary owns planogram-to-ordering bridge"
+  adr_reference: null
+
+status_notes: |
+  v3 design. Planogram authoring, fixture master, and ordering-gate enforcement are in scope.
+  Shelf-edge label compilation (SEL) and daily batch generation deferred to implementation phase.
+  Space-optimization recommendations deferred to v4.
