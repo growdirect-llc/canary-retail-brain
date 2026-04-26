@@ -7,6 +7,7 @@ purpose: "POS-agnostic ingest, seal, and stream of retail transactions with hash
 entities:
   - name: transactions
     schema: sales
+    crdm_category: Events
     primary_columns:
       - name: id
         type: UUID
@@ -99,6 +100,7 @@ entities:
 
   - name: transaction_line_items
     schema: sales
+    crdm_category: Events
     primary_columns:
       - name: id
         type: UUID
@@ -151,6 +153,7 @@ entities:
 
   - name: transaction_tenders
     schema: sales
+    crdm_category: Events
     primary_columns:
       - name: id
         type: UUID
@@ -191,6 +194,7 @@ entities:
 
   - name: evidence_records
     schema: sales
+    crdm_category: Events
     primary_columns:
       - name: id
         type: UUID
@@ -255,6 +259,7 @@ entities:
 
   - name: ingestion_log
     schema: sales
+    crdm_category: Events
     primary_columns:
       - name: id
         type: UUID
@@ -283,6 +288,65 @@ entities:
         columns: [evidence_record_id, step]
         unique: false
     write_pattern: insert-only
+
+  - name: schema_fingerprints
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Adapter producing the payload (e.g., square, counterpoint)"
+      - name: event_type
+        type: TEXT
+        nullable: false
+        description: "Provider-specific event type (e.g., payment.created, Document)"
+      - name: field_path_hash
+        type: TEXT
+        nullable: false
+        description: "SHA256 hash of sorted dotted field paths in the payload — payload's structural fingerprint"
+      - name: occurrence_count
+        type: BIGINT
+        nullable: false
+        default: "1"
+      - name: first_seen_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: last_seen_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: drift_alert_status
+        type: TEXT
+        nullable: false
+        default: "'unresolved'"
+        description: "unresolved | acknowledged | resolved"
+    indexes:
+      - name: idx_schema_fingerprints_merchant_source
+        columns: [merchant_id, source, event_type, field_path_hash]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        detail: "Foreign key to app.merchants(id); tenant isolation"
+        enforcement: "database-trigger"
+      - type: unique
+        columns: [merchant_id, source, event_type, field_path_hash]
+        detail: "Idempotent fingerprint registration; one row per (merchant, source, event_type, structural shape)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [drift_alert_status]
+        detail: "drift_alert_status IN ('unresolved', 'acknowledged', 'resolved')"
+        enforcement: "database-constraint"
 
 ledger_relationship:
   role: publisher
@@ -411,6 +475,74 @@ mcp_tools:
         description: "Refund record with ID, amount, reason"
     idempotency: not-idempotent
     note: "Publishes RETURN movement to stock ledger"
+
+  - name: get_transactions
+    signature: "get_transactions(merchant_id, date_range, store_id?, status?) -> [Transaction]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+      - name: status
+        type: String
+        required: false
+        description: "Optional filter: PAYMENT | REFUND | VOID | NO_SALE"
+    returns:
+      - name: transactions
+        type: Array[Transaction]
+        description: "Paginated transactions, max 1000 per call, newest first"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_voids
+    signature: "get_voids(merchant_id, date_range) -> [Transaction]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+    returns:
+      - name: voids
+        type: Array[Transaction]
+        description: "Paginated void transactions in the window. Convenience wrapper for status='VOID' search."
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_returns
+    signature: "get_returns(merchant_id, date_range) -> [Transaction]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+    returns:
+      - name: returns
+        type: Array[Transaction]
+        description: "Paginated return transactions in the window. Includes refund_links for original-transaction lookback."
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: compute_evidence_proof
+    signature: "compute_evidence_proof(transaction_id) -> EvidenceProof"
+    params:
+      - name: transaction_id
+        type: UUID
+        required: true
+    returns:
+      - name: EvidenceProof
+        type: Object
+        description: "Reconstructs the Merkle proof linking this transaction's evidence_record back to its inscribed batch root. Returns chain_hash + merkle_path + batch_root + (when present) Bitcoin inscription txid."
+    idempotency: idempotent
+    note: "Computation only — no ledger writes. Used by Fox / external auditors / insurance partners to verify chain-of-custody."
 
 agent_role_bindings:
   - agent: canary-vsm
