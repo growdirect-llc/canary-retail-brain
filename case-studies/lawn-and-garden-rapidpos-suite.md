@@ -51,7 +51,7 @@ Canary's 13-module spine maps to Counterpoint endpoints with high fidelity for t
 | **Customer** | R | Three-tier customer model (retail/landscaper/commercial); loyalty; AR for landscapers | `Customer*`, `CustomerControl`, `Customer_OpenItems`, `AR_CUST.CATEG_COD` for tier | Tier resolver; B2B vs retail behavior split; loyalty-points reconciliation | 1 |
 | **Device** | N | Stores + stations + devices; multi-store hierarchy via Workgroup | `Store*`, `Store_Station`, `Device_Config`, `Workgroup` | Hierarchy projection; per-store config surfacing; device-health observability | 1 |
 | **Asset Management** | A | Non-saleable equipment (greenhouses, tractors, fixtures, displays) tracked alongside inventory | `Items` filtered on non-saleable flag (`ITEM_TYP` + custom attributes) | Asset lifecycle layer; depreciation hooks; fixture-to-store binding | 4 |
-| **Loss Prevention** | Q | Perishable shrink baselines, employee discount abuse, voided-tender patterns, mix-and-match abuse, seasonal-staff fraud, restricted-item compliance | Consumes T + R + L + N + S — no Counterpoint-specific endpoints | Canary-native rule engine; 23 rules across 10 categories; L&G allow-list framework | 4 |
+| **Loss Prevention** | Q | Perishable shrink baselines, employee discount abuse, voided-tender patterns, mix-and-match abuse, seasonal-staff fraud, restricted-item compliance | Consumes T + R + L + N + S — no Counterpoint-specific endpoints | Canary-native rule engine; 24 rules across 11 categories; L&G allow-list framework | 4 |
 | **Commercial** | C | B2B landscaper accounts, PO matching, AR balances, account-charge tenders, project billing | `Customer*` with B2B flag, `Customer_OpenItems`, `PayCode*` (account tenders), `Document*` with AR_DOC type | B2B workflow surface; landscaper-tier behavior; project-bundling | 4 |
 | **Distribution** | D | Multi-store transfers, inter-store inventory, in-transit tracking, low-stock routing | `InventoryLocations`, `Items_ByLocation`, `Document*` with XFER type | Transfer-loss aggregation; per-route shrinkage; replenishment routing | 3 |
 | **Finance** | F | Payments, tenders, gift-card-as-tender, day-end close, perpetual cost ledger | `PayCode*`, `GiftCard*`, `Document*` payment detail, `Tax*` | Per GRO-526 ADR Option C — Canary perpetual layer, merchant GL via OAuth (QBO/Xero); alt-payment-rail capture | 1 |
@@ -67,7 +67,7 @@ Canary's 13-module spine maps to Counterpoint endpoints with high fidelity for t
 
 ## 4. Vertical-Specific Q-Rules — the L&G-Critical Subset
 
-The Module Q rule catalog (`canary-module-q-counterpoint-rule-catalog.md`) carries 23 rules across 10 categories. Eight of those are L&G-critical — they exploit Counterpoint's substrate richness and require the garden-center allow-list framework to keep the false-positive rate tractable.
+The Module Q rule catalog (`canary-module-q-counterpoint-rule-catalog.md`) carries 24 rules across 11 categories. Nine of those are L&G-critical — they exploit Counterpoint's substrate richness and require the garden-center allow-list framework to keep the false-positive rate tractable.
 
 | Rule ID | Name | L&G Specifics |
 |---|---|---|
@@ -79,10 +79,10 @@ The Module Q rule catalog (`canary-module-q-counterpoint-rule-catalog.md`) carri
 | **Q-MM-01** | Mix-and-match producing below-cost line | Individual line margins go negative inside legitimate bundles. Allow-list bundle-level margin (only flag when the BUNDLE goes negative, not the line). |
 | **Q-MM-02** | Mix-and-match used outside grouping | M&M code applied to a line whose item isn't in the group — manual-override exploit pattern. No allow-list; this one fires clean. |
 | **Q-CT-01** | Wholesale tier on retail-pattern customer | Landscaper-tier abuse — retail walk-in customer flagged WHOLESALE but transaction pattern is single-line, low-dollar, retail SKUs. Aggregates to per-customer review. |
+| **Q-RESTRICTED-ITEM-SALE** | Restricted-item sale without override | Cataloged 2026-04-25 under the new Compliance category (P1, regulatory exposure). Garden centers carry many EPA-registered pesticides and herbicides; California stores carry heavy Prop 65 exposure on amendments and fertilizers. The `restricted_items_authorized` manager override IS the forensic record — its absence on a restricted-item line is the detection. Allow-list is store-level flag activation (a Tennessee store doesn't activate `prop_65`). |
 
-Two more rules deserve mention as L&G-relevant but not in the eight-rule core:
+One more rule deserves mention as L&G-relevant but not in the nine-rule core:
 
-- **Restricted-item compliance check** (planned, not yet in the catalog) — California Prop 65 / EPA-registered pesticides shouldn't sell without a restricted-items override at the register. Cross-references item attributes against employee role.
 - **Seasonal-staff onboarding fraud** (extension of Q-VR-03 / Q-DS-03) — first-30-day employee tender patterns and void clusters; baseline shifts during April-June peak hiring.
 
 The garden-center allow-list framework in §"Garden-center allow-list framework" of the rule catalog wiki is pre-loaded for any L&G deployment. The framework covers cash-vendor-payment, manual-entry noise, item-code drift, live-goods write-off, and mix-and-match expected overlap. Phase 4 deployment activates rules in dry-run for thirty days, then promotes to active alerting per the per-customer cutover behavior.
@@ -212,7 +212,7 @@ A sixth gate — implicit, but worth stating — is the founder's escalation req
 
 ## 10. Conclusion
 
-The Lawn-and-Garden RapidPOS Suite is real this quarter. It is not a 2027 aspiration or a deck-only positioning move. The substrate is in flight under GRO-558. The Phase 0 audit ratified that the Square pipeline can stay untouched and Counterpoint plugs in alongside. The OpenAPI spec validates clean. The connection runbook exists. Five phase dispatches are drafted on disk. The Q rule catalog has 23 rules with an L&G-specific allow-list framework. The Boutique H&G chain is the anchor first deployment, multi-store, Counterpoint-running, ready.
+The Lawn-and-Garden RapidPOS Suite is real this quarter. It is not a 2027 aspiration or a deck-only positioning move. The substrate is in flight under GRO-558. The Phase 0 audit ratified that the Square pipeline can stay untouched and Counterpoint plugs in alongside. The OpenAPI spec validates clean. The connection runbook exists. Five phase dispatches are drafted on disk. The Q rule catalog has 24 rules with an L&G-specific allow-list framework. The Boutique H&G chain is the anchor first deployment, multi-store, Counterpoint-running, ready.
 
 Bart Monahan's Rapid POS is the channel. Counterpoint is the substrate. Canary is the operating platform. The 13-module spine — T R N A Q C D F J S P L W — runs the full year of the L&G operator's day, from peak-season replenishment in May through dead-count write-off in October to vendor reconciliation in February. Loss prevention is one of those thirteen modules, not the whole product. The competitive moat is the suite plus the L&G domain layer, not the rule engine in isolation.
 
@@ -243,7 +243,7 @@ The decision in front of us is not whether to ship LP-only or operating-suite �
 - `Canary-Retail-Brain/case-studies/canary-finance-architecture-options.md` — sibling ADR; Option C OAuth-bridge pattern that Module F inherits
 - `docs/sdds/canary/ncr-counterpoint-retail-spine-integration.md` — the SDD; per-module mappings (§6), CRDM alignment (§4), phasing (§8)
 - `Brain/wiki/garden-center-operating-reality.md` — vertical operating reality this playbook is read against
-- `Brain/wiki/canary-module-q-counterpoint-rule-catalog.md` — 23 Q rules with garden-center allow-list framework
+- `Brain/wiki/canary-module-q-counterpoint-rule-catalog.md` — 24 Q rules with garden-center allow-list framework
 - `Brain/wiki/ncr-counterpoint-phase-0-context-brief.md` — strategic context + Phase 0 handoff
 - `Brain/wiki/rapid-pos-counterpoint-market-research-tam.md` — TAM (~1,200 US garden centers; ~9,000 specialty SMB across all Counterpoint VAR verticals)
 - `Brain/wiki/alternative-payment-rails-canary-native-opportunity.md` — Module F extension lane (Zelle/Venmo/Cash App/Lightning capture)
