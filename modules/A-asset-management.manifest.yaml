@@ -2,22 +2,608 @@ prefix: A
 name: asset-management
 version: v1
 status: design
-purpose: "Per-device anomaly detection (Bubble) via baseline modeling and multivariate drift signals against device registry."
+purpose: "Non-saleable physical asset registry, lifecycle tracking, depreciation schedules, and maintenance records — equipment, fixtures, greenhouses, tractors, IoT devices, store furniture."
 
 ledger_relationship:
-  role: n/a
-  verbs: []
-  impact: "A is a projection-and-detection layer over T's events and N's registry. Publishes anomaly signals to Q; owns no entities."
+  role: subscriber
+  verbs: [acquisition, decommission]
+  impact: "A subscribes to D's receipts to detect asset acquisitions; subscribes to F's gl_postings for depreciation entries. A publishes lifecycle events that F consumes for capex / depreciation accounting."
+
+# Reframing note (deepening pass 2026-04-26):
+# The previous thin manifest framed A as "Per-device anomaly detection (Bubble)
+# via baseline modeling." That conflicts with the file name (asset-management),
+# the module narrative path, and the dispatch's entity list. The asset-management
+# framing is canonical; if a Bubble-style per-device anomaly layer is desired,
+# it belongs as either a sub-surface within Q (loss prevention) or as a separate
+# module proposal. Surfaced for Jeffe at deepening time.
+#
+# CRDM-aligned entities following Mini-5 shape.
+# Decision notes:
+# - `assets` and `asset_categories` are Things — non-saleable physical inventory
+#   with serial / asset-tag identity.
+# - `asset_locations` is Workflows — current-bind state over time (asset moved
+#   from warehouse → store → quarantine → decommissioned). Effective-dated.
+# - `asset_lifecycle_records` is Events — append-only ledger of acquisition,
+#   deployment, transfer, decommission, disposal.
+# - `depreciation_schedules` is Workflows — long-running stateful per-asset
+#   depreciation; schedule + applied-to-date + remaining basis. Tied to F's
+#   gl_postings for actual GL impact.
+# - `maintenance_records` is Events — append-only per-asset maintenance log.
+entities:
+  - name: assets
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: asset_category_id
+        type: UUID
+        nullable: false
+      - name: asset_tag
+        type: TEXT
+        nullable: false
+        description: "Merchant-internal asset identifier (matches Counterpoint Item with non-saleable flag when ingested)"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: vendor
+        type: TEXT
+        nullable: true
+      - name: model
+        type: TEXT
+        nullable: true
+      - name: serial_number
+        type: TEXT
+        nullable: true
+      - name: acquisition_cost_cents
+        type: BIGINT
+        nullable: true
+      - name: acquisition_date
+        type: DATE
+        nullable: true
+      - name: useful_life_years
+        type: INTEGER
+        nullable: true
+      - name: salvage_value_cents
+        type: BIGINT
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'in_service'"
+        description: "in_service | in_storage | maintenance | retired | disposed | lost_or_stolen"
+      - name: is_seasonal_storage
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+        description: "L&G-specific: seasonal storage units used Apr-Oct, dormant Nov-Mar"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_assets_merchant_tag
+        columns: [merchant_id, asset_tag]
+        unique: true
+      - name: idx_assets_category_status
+        columns: [asset_category_id, status]
+        unique: false
+      - name: idx_assets_serial
+        columns: [merchant_id, serial_number]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [asset_category_id]
+        detail: "FK to asset_categories(id)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [merchant_id, asset_tag]
+        detail: "Per-merchant asset-tag uniqueness"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('in_service','in_storage','maintenance','retired','disposed','lost_or_stolen')"
+        enforcement: "database-constraint"
+
+  - name: asset_categories
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: parent_category_id
+        type: UUID
+        nullable: true
+      - name: code
+        type: TEXT
+        nullable: false
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: category_type
+        type: TEXT
+        nullable: false
+        description: "equipment | fixture | building | vehicle | iot_device | greenhouse | irrigation | nursery_infrastructure | seasonal_storage"
+      - name: default_useful_life_years
+        type: INTEGER
+        nullable: true
+        description: "Default useful life for this category (assets can override)"
+      - name: depreciation_method
+        type: TEXT
+        nullable: false
+        default: "'straight_line'"
+        description: "straight_line | declining_balance | sum_of_years_digits | units_of_production"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_asset_categories_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_asset_categories_parent
+        columns: [parent_category_id]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [parent_category_id]
+        detail: "Self-referencing FK for hierarchy"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [category_type]
+        detail: "category_type IN ('equipment','fixture','building','vehicle','iot_device','greenhouse','irrigation','nursery_infrastructure','seasonal_storage')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [depreciation_method]
+        detail: "depreciation_method IN ('straight_line','declining_balance','sum_of_years_digits','units_of_production')"
+        enforcement: "database-constraint"
+
+  - name: asset_locations
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: asset_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: true
+        description: "FK to N.stores(id) when asset is at a customer-facing location; null for warehouse / DC / vendor"
+      - name: inventory_location_id
+        type: UUID
+        nullable: true
+        description: "FK to D.inventory_locations(id) when bound to a specific warehouse / yard"
+      - name: position_note
+        type: TEXT
+        nullable: true
+        description: "Free-text physical position (e.g., 'Greenhouse 3, Bay 2', 'Store-North Garden Yard')"
+      - name: assigned_to
+        type: UUID
+        nullable: true
+        description: "FK to L.employees(id) when asset is custody-assigned"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_asset_locations_asset_current
+        columns: [asset_id, effective_end]
+        unique: false
+      - name: idx_asset_locations_store
+        columns: [store_id, effective_end]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [asset_id]
+        detail: "FK to assets(id)"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [asset_id, effective_start]
+        detail: "At most one asset_locations row per asset_id with effective_end IS NULL (current-location invariant); enforced via partial unique index"
+        enforcement: "application"
+
+  - name: asset_lifecycle_records
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: asset_id
+        type: UUID
+        nullable: false
+      - name: event_type
+        type: TEXT
+        nullable: false
+        description: "acquired | deployed | transferred | maintenance_started | maintenance_completed | retired | disposed | lost | recovered"
+      - name: event_payload
+        type: JSONB
+        nullable: false
+        default: "'{}'"
+        description: "Event-specific data: vendor invoice link, transfer source/dest, maintenance vendor, disposal method, recovery details"
+      - name: posted_by
+        type: UUID
+        nullable: true
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: linked_evidence_id
+        type: UUID
+        nullable: true
+        description: "FK to T.evidence_records(id) when high-impact event (disposal, lost) requires hash-chain audit"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_asset_lifecycle_records_asset_posted
+        columns: [asset_id, posted_at]
+        unique: false
+      - name: idx_asset_lifecycle_records_event_type
+        columns: [merchant_id, event_type, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [asset_id]
+        detail: "FK to assets(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [event_type]
+        detail: "event_type IN ('acquired','deployed','transferred','maintenance_started','maintenance_completed','retired','disposed','lost','recovered')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [event_payload, posted_at, asset_id]
+        detail: "Lifecycle records are immutable post-insert; corrections via compensating event linked to original"
+        enforcement: "database-trigger"
+
+  - name: depreciation_schedules
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: asset_id
+        type: UUID
+        nullable: false
+      - name: method
+        type: TEXT
+        nullable: false
+        description: "straight_line | declining_balance | sum_of_years_digits | units_of_production"
+      - name: cost_basis_cents
+        type: BIGINT
+        nullable: false
+      - name: salvage_value_cents
+        type: BIGINT
+        nullable: false
+        default: "0"
+      - name: useful_life_periods
+        type: INTEGER
+        nullable: false
+        description: "Total depreciation periods (typically months)"
+      - name: period_unit
+        type: TEXT
+        nullable: false
+        default: "'month'"
+        description: "month | year"
+      - name: applied_periods
+        type: INTEGER
+        nullable: false
+        default: "0"
+      - name: accumulated_depreciation_cents
+        type: BIGINT
+        nullable: false
+        default: "0"
+      - name: book_value_cents
+        type: BIGINT
+        nullable: false
+        description: "Computed: cost_basis - accumulated_depreciation"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | paused | completed | written_off | reactivated"
+      - name: started_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: completed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_depreciation_schedules_asset
+        columns: [asset_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [asset_id]
+        detail: "FK to assets(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [method]
+        detail: "method IN ('straight_line','declining_balance','sum_of_years_digits','units_of_production')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','paused','completed','written_off','reactivated')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [cost_basis_cents, accumulated_depreciation_cents, book_value_cents]
+        detail: "book_value_cents = cost_basis_cents - accumulated_depreciation_cents (application-enforced)"
+        enforcement: "application"
+
+  - name: maintenance_records
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: asset_id
+        type: UUID
+        nullable: false
+      - name: maintenance_type
+        type: TEXT
+        nullable: false
+        description: "preventive | corrective | inspection | calibration | seasonal_prep | seasonal_winterize"
+      - name: vendor
+        type: TEXT
+        nullable: true
+      - name: cost_cents
+        type: BIGINT
+        nullable: true
+      - name: started_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: completed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: notes
+        type: TEXT
+        nullable: true
+      - name: next_due_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "When preventive maintenance schedule projects the next event; drives get_maintenance_due"
+      - name: posted_by
+        type: UUID
+        nullable: true
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_maintenance_records_asset_started
+        columns: [asset_id, started_at]
+        unique: false
+      - name: idx_maintenance_records_next_due
+        columns: [merchant_id, next_due_at]
+        unique: false
+        description: "Supports get_maintenance_due queries"
+      - name: idx_maintenance_records_type
+        columns: [merchant_id, maintenance_type, started_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [asset_id]
+        detail: "FK to assets(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [maintenance_type]
+        detail: "maintenance_type IN ('preventive','corrective','inspection','calibration','seasonal_prep','seasonal_winterize')"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_assets
+    signature: "get_assets(merchant_id, asset_category_id?, store_id?, status?) -> [Asset]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: asset_category_id
+        type: UUID
+        required: false
+      - name: store_id
+        type: UUID
+        required: false
+        description: "When provided, joins asset_locations to filter assets currently at this store"
+      - name: status
+        type: String
+        required: false
+    returns:
+      - name: assets
+        type: Array[Asset]
+        description: "Paginated, max 500 per call, with current location + category breadcrumb"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_asset
+    signature: "get_asset(asset_id) -> AssetWithLifecycle"
+    params:
+      - name: asset_id
+        type: UUID
+        required: true
+    returns:
+      - name: AssetWithLifecycle
+        type: Object
+        description: "Full asset record + current location + active depreciation schedule + maintenance summary (last + next-due)"
+    idempotency: idempotent
+
+  - name: get_asset_lifecycle
+    signature: "get_asset_lifecycle(asset_id, date_range?) -> [LifecycleRecord]"
+    params:
+      - name: asset_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: false
+    returns:
+      - name: events
+        type: Array[LifecycleRecord]
+        description: "Asset lifecycle events in the window with payloads + linked evidence references"
+    idempotency: idempotent
+
+  - name: get_maintenance_due
+    signature: "get_maintenance_due(merchant_id, lookahead_days?) -> [MaintenanceDue]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: lookahead_days
+        type: Integer
+        required: false
+        description: "Defaults to 30; surfaces (asset, maintenance_type) pairs whose next_due_at falls within lookahead window"
+    returns:
+      - name: due
+        type: Array[MaintenanceDue]
+        description: "Upcoming maintenance with asset info + last-completed timestamps + suggested vendor based on history"
+    idempotency: idempotent
+    rate_limit: "60 calls/minute"
+
+  - name: get_depreciation_schedule
+    signature: "get_depreciation_schedule(asset_id) -> DepreciationSchedule"
+    params:
+      - name: asset_id
+        type: UUID
+        required: true
+    returns:
+      - name: DepreciationSchedule
+        type: Object
+        description: "Active schedule + applied periods + remaining basis + projected period-by-period entries through completion"
+    idempotency: idempotent
+
+integrations:
+  upstream:
+    - module: D
+      relationship: "I_read_state_from"
+      verbs: [receipt]
+      detail: "A subscribes to D's transfer_movements where movement_type=receipt for asset acquisitions tagged as non-saleable"
+    - module: N
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "A's IoT-device asset category links to N.devices for telemetry-driven anomaly correlation (when present)"
+    - module: L
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "A reads L.employees for assigned_to custody attribution on asset_locations"
+  downstream:
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: [acquisition, decommission]
+      detail: "F's gl_postings consume A's depreciation_schedules (monthly depreciation entry) and asset_lifecycle_records (acquisition + disposal capex entries)"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q reads asset_lifecycle_records for missing-asset detection (asset status=lost_or_stolen pattern + custodian shifts)"
+    - module: S
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "S references A.assets for fixture-as-asset linkage (planograms reference fixture asset_ids when they're physical-asset-tracked)"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to manager / owner roles. Write tools (lifecycle event posting, depreciation start, maintenance scheduling) require manager or owner role with documented payload."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories:
+      - asset-tag
+      - serial-number
+      - vendor-contact-may-link-to-PII
+    retention_days: 2555
+    encryption: false
+    detail: "Asset metadata is non-PII. Vendor contact (phone/email) when present in event_payload is hashed at insert time and resolved through a CRM-broker check at query time. Custody assignments expose employee_id only — display name resolution through L's PII broker."
 
 implementation_route:
-  primary: legacy-native
-  rationale: "No merchant-side equivalent at SMB tier for per-device anomaly detection; Canary owns the full surface."
+  primary: integrated-hybrid
+  rationale: "Canary owns asset registry + lifecycle events + depreciation schedules; merchant tool owns physical procurement, vendor management, capex approval workflow."
   perpetual_owner: canary
-  period_owner: canary
+  period_owner: merchant-system
   alternatives_considered:
-    - "Merchant MDM provider — rejected: MDM systems do not perform transaction-anomaly detection"
+    - "Legacy-native asset master — rejected: merchants already track procurement / capex in accounting tool; A is the operational layer Canary owns to surface depreciation + maintenance + lifecycle into Q + F"
+    - "Bubble (per-device anomaly detection) framing — rejected during deepening: that's Q's territory if anywhere; A is the asset registry, not anomaly engine"
   adr_reference: null
 
 status_notes: |
-  v1 design (implementation pending). Architectural commitment is real; infrastructure scaffold (baseline_calculator, metrics tables, N registry)
-  is in place. Bubble detection layer and per-device baseline MCP tools deferred to implementation phase.
+  v1 design. Asset registry, hierarchy, lifecycle audit trail, depreciation, and maintenance log in scope.
+  Counterpoint upstream is limited — Counterpoint tracks assets as items with non-saleable flags (per SDD §6.4). The
+  Counterpoint adapter populates assets when ingesting items with the asset flag set; lifecycle + maintenance + depreciation
+  are Canary-native (no upstream).
+
+  L&G specifics shipped:
+  - asset_categories.category_type includes greenhouse / irrigation / nursery_infrastructure / seasonal_storage
+  - assets.is_seasonal_storage flag for Apr-Oct active / Nov-Mar dormant inventory
+  - maintenance_records.maintenance_type includes seasonal_prep + seasonal_winterize for the
+    spring-startup / fall-shutdown cadence on greenhouses + irrigation systems
+
+  Reframing note (deepening pass 2026-04-26): the previous thin manifest had A framed as a "Bubble per-device
+  anomaly detection" module, which conflicted with the file name + module narrative path + dispatch description.
+  Asset management is canonical; if a per-device anomaly-detection layer is desired, it belongs in Q or as a
+  separate module proposal.
