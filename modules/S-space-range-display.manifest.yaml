@@ -2,12 +2,681 @@ prefix: S
 name: space-range-display
 version: v3
 status: design
-purpose: "Planogram authoring, fixture inventory, shelf-edge label compilation, and ordering-gate enforcement per location and zone."
+purpose: "Item catalog, hierarchy, planogram authoring, fixture inventory, shelf-edge label compilation, and ordering-gate enforcement per location and zone."
 
 ledger_relationship:
   role: subscriber
   verbs: []
   impact: "S is SUBSCRIBER and GATEKEEPER. Reads current SOH to validate planogram capacity; enforces ordering gate (item must have planogram assignment before receipt)."
+
+# CRDM-aligned entity declarations following the Mini-5 (C-commercial) shape.
+# Decision notes inline:
+# - `items` and the item_* family are Things (catalog primitives — SKU master,
+#   categories, images, serials, inventory snapshots).
+# - `planograms` and `mix_and_match_groups` are Workflows — they carry
+#   stateful lifecycle (draft → published → effective → superseded) and
+#   are how operations expresses "what's allowed where."
+# - L&G specifics on items: perishable, dead_count, is_seasonal, peak window
+#   flags. Mix-and-match flat pricing (the "10 4-inch perennials for $25"
+#   pattern) gets a dedicated group entity.
+entities:
+  - name: items
+    schema: app
+    crdm_category: Things
+    extends: "app.products (S-owned merchandising attributes)"
+    description: "Item / SKU master. Extends app.products from C with planogram + L&G-specific fields. C owns supplier + cost basis; S owns the merchandising-and-display attributes."
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        description: "Inherited from app.products"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system SKU identifier (Square catalog_object_id, Counterpoint ITM_ID)"
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Provider key: square | counterpoint | manual"
+      - name: upc
+        type: TEXT
+        nullable: true
+      - name: display_name
+        type: TEXT
+        nullable: false
+      - name: category_id
+        type: UUID
+        nullable: false
+        description: "FK to item_categories(id) — narrowest-fit category (subcategory or class level when present)"
+      - name: item_type
+        type: TEXT
+        nullable: false
+        default: "'standard'"
+        description: "standard | kit | bundle | service | non_inventory | mix_and_match_unit"
+      - name: unit_of_measure
+        type: TEXT
+        nullable: false
+        default: "'each'"
+        description: "each | pound | ounce | gallon | flat | yard | cubic_yard | linear_foot — L&G needs flats and bulk"
+      - name: pack_size
+        type: INTEGER
+        nullable: true
+        description: "When item is sold by pack (e.g., 4-inch perennial flat with 18 cells), pack_size = 18"
+      - name: is_perishable
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+        description: "L&G-critical: live plants, chemicals with shelf life. Drives dead-count + expiration tracking."
+      - name: shelf_life_days
+        type: INTEGER
+        nullable: true
+        description: "When is_perishable=true, expected shelf life from receipt"
+      - name: is_seasonal
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+      - name: season_start_month
+        type: INTEGER
+        nullable: true
+        description: "1-12 when is_seasonal=true; defines start of selling window"
+      - name: season_end_month
+        type: INTEGER
+        nullable: true
+        description: "1-12 when is_seasonal=true"
+      - name: dead_count_running_total
+        type: INTEGER
+        nullable: false
+        default: "0"
+        description: "Lifetime dead-count for perishables; mutated by D's shrink/dead-count adjustments"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | discontinued | recalled"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_items_merchant_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+      - name: idx_items_category
+        columns: [category_id, status]
+        unique: false
+      - name: idx_items_upc
+        columns: [merchant_id, upc]
+        unique: false
+      - name: idx_items_perishable_seasonal
+        columns: [merchant_id, is_perishable, is_seasonal, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [category_id]
+        detail: "FK to item_categories(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [item_type]
+        detail: "item_type IN ('standard','kit','bundle','service','non_inventory','mix_and_match_unit')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [unit_of_measure]
+        detail: "unit_of_measure IN ('each','pound','ounce','gallon','flat','yard','cubic_yard','linear_foot')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [season_start_month, season_end_month]
+        detail: "When is_seasonal=true, both months in 1..12; application-level invariant"
+        enforcement: "application"
+
+  - name: item_categories
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: parent_category_id
+        type: UUID
+        nullable: true
+        description: "Self-referencing FK for hierarchy: department > category > subcategory > class"
+      - name: code
+        type: TEXT
+        nullable: false
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: hierarchy_level
+        type: TEXT
+        nullable: false
+        description: "department | category | subcategory | class"
+      - name: department_id
+        type: UUID
+        nullable: true
+        description: "FK to C.departments(id) — links the catalog hierarchy to the merchandising department for OTB allocation"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_item_categories_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_item_categories_parent
+        columns: [parent_category_id]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [parent_category_id]
+        detail: "Self-referencing FK; enforces tree shape"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [hierarchy_level]
+        detail: "hierarchy_level IN ('department','category','subcategory','class')"
+        enforcement: "database-constraint"
+
+  - name: item_images
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: image_filename
+        type: TEXT
+        nullable: false
+        description: "Source-system filename (matches Counterpoint Item_ImageFilename when ingested)"
+      - name: url
+        type: TEXT
+        nullable: true
+        description: "Resolved URL when image is hosted; null when filename-only and stored in object storage"
+      - name: alt_text
+        type: TEXT
+        nullable: true
+      - name: sort_order
+        type: INTEGER
+        nullable: false
+        default: "0"
+      - name: is_primary
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_item_images_item_sort
+        columns: [item_id, sort_order]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id)"
+        enforcement: "database-constraint"
+
+  - name: item_serials
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: serial_number
+        type: TEXT
+        nullable: false
+        description: "Per-unit serial; rare in L&G except for high-ticket equipment (mowers, generators, blowers)"
+      - name: store_id
+        type: UUID
+        nullable: true
+        description: "Current store; null when in transit or at vendor"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'in_stock'"
+        description: "in_stock | sold | returned | warranty_replaced | rma | scrap"
+      - name: received_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: sold_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_item_serials_item_status
+        columns: [item_id, status]
+        unique: false
+      - name: idx_item_serials_serial
+        columns: [merchant_id, serial_number]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('in_stock','sold','returned','warranty_replaced','rma','scrap')"
+        enforcement: "database-constraint"
+
+  - name: item_inventory
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: on_hand
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+        description: "Current on-hand quantity in item's unit_of_measure"
+      - name: on_order
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+      - name: on_reserve
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+        description: "Reserved against open orders, layaways, special orders"
+      - name: dead_count_period
+        type: INTEGER
+        nullable: false
+        default: "0"
+        description: "Dead-count for the current period (resets on period close); supplements items.dead_count_running_total"
+      - name: last_received_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: last_counted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Last physical / cycle count timestamp"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_item_inventory_item_store
+        columns: [item_id, store_id]
+        unique: true
+      - name: idx_item_inventory_store
+        columns: [store_id, on_hand]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [store_id]
+        detail: "FK to stores(id) (N-owned)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [item_id, store_id]
+        detail: "One inventory row per (item, store)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [on_hand, on_order, on_reserve]
+        detail: "Counts can be negative during reconciliation windows but must net non-negative at period close (application invariant)"
+        enforcement: "application"
+
+  - name: planograms
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: fixture_id
+        type: TEXT
+        nullable: false
+        description: "Merchant-defined fixture identifier (e.g., 'GARDEN-FLAT-A1', 'PERENNIAL-BENCH-3'). L&G has flat-display arrangements distinct from grocery aisle/bay/shelf grids."
+      - name: fixture_type
+        type: TEXT
+        nullable: false
+        description: "shelf | bench | flat | rack | endcap | promotional | display_table | greenhouse_zone | nursery_row"
+      - name: capacity_units
+        type: INTEGER
+        nullable: false
+        description: "Number of distinct items the fixture can hold"
+      - name: assignments
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Array of {item_id, position, facings, sub_capacity} mappings within the fixture"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'draft'"
+        description: "draft | published | effective | superseded | retired"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_planograms_store_fixture
+        columns: [store_id, fixture_id, status]
+        unique: false
+      - name: idx_planograms_status_effective
+        columns: [merchant_id, status, effective_start]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [store_id]
+        detail: "FK to stores(id) (N-owned)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [fixture_type]
+        detail: "fixture_type IN ('shelf','bench','flat','rack','endcap','promotional','display_table','greenhouse_zone','nursery_row')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','published','effective','superseded','retired')"
+        enforcement: "database-constraint"
+
+  - name: mix_and_match_groups
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing group code (matches Counterpoint MIX_MATCH_COD when ingested)"
+      - name: name
+        type: TEXT
+        nullable: false
+        description: "Display name (e.g., '10-for-25 4-inch perennials')"
+      - name: pricing_rule
+        type: TEXT
+        nullable: false
+        description: "n_for_price | percent_off_n_or_more | bogo | bulk_break"
+      - name: trigger_quantity
+        type: INTEGER
+        nullable: false
+        description: "Minimum eligible-item count to trigger the price (e.g., 10 in 'any 10 for $25')"
+      - name: bundled_price_cents
+        type: BIGINT
+        nullable: true
+        description: "Set when pricing_rule = n_for_price"
+      - name: percent_off_bps
+        type: INTEGER
+        nullable: true
+        description: "Set when pricing_rule = percent_off_n_or_more"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'draft'"
+        description: "draft | active | paused | retired"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: member_item_ids
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Array of item_id UUIDs eligible for this group's pricing rule"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_mix_and_match_groups_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_mix_and_match_groups_status
+        columns: [merchant_id, status, effective_start]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: check
+        columns: [pricing_rule]
+        detail: "pricing_rule IN ('n_for_price','percent_off_n_or_more','bogo','bulk_break')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','active','paused','retired')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [trigger_quantity]
+        detail: "trigger_quantity >= 1"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_items
+    signature: "get_items(merchant_id, category_id?, status?, is_perishable?, is_seasonal?) -> [Item]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: category_id
+        type: UUID
+        required: false
+      - name: status
+        type: String
+        required: false
+      - name: is_perishable
+        type: Boolean
+        required: false
+      - name: is_seasonal
+        type: Boolean
+        required: false
+    returns:
+      - name: items
+        type: Array[Item]
+        description: "Paginated, max 1000 per call"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_item
+    signature: "get_item(item_id) -> Item"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+    returns:
+      - name: Item
+        type: Object
+        description: "Full item record + category breadcrumb + primary image + current inventory across all stores"
+    idempotency: idempotent
+
+  - name: get_item_categories
+    signature: "get_item_categories(merchant_id, root_id?) -> CategoryTree"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: root_id
+        type: UUID
+        required: false
+    returns:
+      - name: CategoryTree
+        type: Object
+        description: "Nested department > category > subcategory > class hierarchy with item counts per node"
+    idempotency: idempotent
+
+  - name: get_item_inventory
+    signature: "get_item_inventory(item_id, store_id?) -> [InventoryRow]"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+        description: "When omitted, returns inventory across all stores"
+    returns:
+      - name: rows
+        type: Array[InventoryRow]
+        description: "On-hand + on-order + on-reserve + dead-count per store"
+    idempotency: idempotent
+
+  - name: get_item_images
+    signature: "get_item_images(item_id) -> [ItemImage]"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+    returns:
+      - name: images
+        type: Array[ItemImage]
+        description: "All images for the item, sorted by sort_order; primary image flagged"
+    idempotency: idempotent
+
+  - name: get_planogram
+    signature: "get_planogram(store_id, fixture_id, at?) -> Planogram"
+    params:
+      - name: store_id
+        type: UUID
+        required: true
+      - name: fixture_id
+        type: String
+        required: true
+      - name: at
+        type: Timestamp
+        required: false
+        description: "Optional point-in-time effective lookup; defaults to current"
+    returns:
+      - name: Planogram
+        type: Object
+        description: "Effective planogram for (store, fixture) at the requested time. Returns null when no published planogram exists."
+    idempotency: idempotent
+
+integrations:
+  upstream:
+    - module: C
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "S extends C's products with display attributes; C owns supplier link + cost basis, S owns category hierarchy + planogram + L&G flags"
+    - module: external
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "S ingests from Counterpoint Item* / ItemCategor* / ItemSerial* / Item_Images / Item_ImageFilename per SDD §6.10. Square Catalog API for square-source items."
+  downstream:
+    - module: T
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "T joins S for transaction-line item lookup at parse time"
+    - module: D
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "D reads S for receipt validation (item must exist + have planogram per ordering gate); D writes back to item_inventory.on_hand on receipt"
+    - module: P
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "P reads items + mix_and_match_groups for price computation at sale time"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q reads items.is_perishable + dead_count signals for shrink-pattern detection (perishable shrink is normal, but spike-relative-to-receipts is fraud / receiving-error signal)"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "F's COGS attribution joins items for category-level GL-account mapping"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to any authenticated tenant role; write tools (item create / category re-parent / planogram publish / mix-and-match-group activate) require buyer or merchandiser role."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories: []
+    retention_days: 2555
+    encryption: false
+    detail: "S holds catalog metadata only — no PII. Item-image URLs may resolve to merchant-owned object storage; S does not handle the binary content directly."
 
 implementation_route:
   primary: integrated-hybrid
@@ -19,6 +688,14 @@ implementation_route:
   adr_reference: null
 
 status_notes: |
-  v3 design. Planogram authoring, fixture master, and ordering-gate enforcement are in scope.
+  v3 design. Item master + hierarchy + planogram authoring + mix-and-match grouping + ordering-gate enforcement in scope.
+  Counterpoint Item* surface (SDD §6.10) lands here including Item_Images / Item_ImageFilename / ItemSerial / Items_ByLocation.
   Shelf-edge label compilation (SEL) and daily batch generation deferred to implementation phase.
-  Space-optimization recommendations deferred to v4.
+  Space-optimization recommendations (foot-traffic-vs-shelf-yield) deferred to v4 alongside L's IoT integration.
+
+  L&G specifics shipped in this manifest:
+  - is_perishable + shelf_life_days + dead_count_running_total + item_inventory.dead_count_period for live-plant + chemical shrink tracking
+  - is_seasonal + season_start_month + season_end_month for peak Apr-Sep window awareness
+  - mix_and_match_groups for the "10 4-inch perennials for $25" pattern (n_for_price), bulk-break (e.g., 50+ at lower per-each), BOGO, and percent-off-n-or-more rules
+  - unit_of_measure includes flat / yard / cubic_yard / linear_foot — bulk soil, mulch, sod, lumber for L&G
+  - fixture_type includes flat / bench / greenhouse_zone / nursery_row — display arrangements distinct from grocery
