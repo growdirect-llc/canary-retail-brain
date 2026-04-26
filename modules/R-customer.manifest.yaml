@@ -9,6 +9,535 @@ ledger_relationship:
   verbs: []
   impact: "R is a People registry that derives customer state from T's transaction stream. No direct ledger movements published; R reads to compute lifetime value, transaction counts, temporal bounds."
 
+# CRDM-aligned entity declarations following the Mini-5 (C-commercial) shape.
+# Decision notes inline:
+# - `customer_addresses` modeled as Places (addresses are locations where People interact with the merchant — billing, shipping, on-file delivery). Matches CRDM's framing that "Places are physical or logical locations things live in, people work at or occupy."
+# - `loyalty_accounts` modeled as People sub-entity (loyalty membership is an identity, not a transaction). Loyalty point movement events live in T (transactions) per the EJ Spine pattern.
+# - `external_identities_customer` is a Workflow because it tracks the resolution-state lifecycle (provisional → confirmed → conflicted → merged) across multi-source ingest. The bridge structure was partially built per GRO-267.
+entities:
+  - name: customers
+    schema: app
+    crdm_category: People
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system customer ID (Square customer.id, Counterpoint AR_CUST.CUST_NO). Unique per (merchant, source)."
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Provider that created this customer record (e.g., square, counterpoint)"
+      - name: customer_tier
+        type: TEXT
+        nullable: false
+        default: "'retail'"
+        description: "L&G-critical multi-tier flag: retail | landscaper | commercial | wholesale"
+      - name: display_name
+        type: TEXT
+        nullable: true
+        description: "Merchant-facing name (business name for B2B, full name for B2C). Optional — privacy posture."
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | deleted"
+      - name: first_seen_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+        description: "First transaction or first sync — whichever earlier"
+      - name: last_seen_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_customers_merchant_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+      - name: idx_customers_merchant_tier
+        columns: [merchant_id, customer_tier, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        detail: "Foreign key to app.merchants(id); tenant isolation"
+        enforcement: "database-trigger"
+      - type: unique
+        columns: [merchant_id, source, external_id]
+        detail: "Per-merchant per-source customer uniqueness; idempotent ingest"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [customer_tier]
+        detail: "customer_tier IN ('retail', 'landscaper', 'commercial', 'wholesale')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active', 'inactive', 'deleted')"
+        enforcement: "database-constraint"
+
+  - name: customer_addresses
+    schema: app
+    crdm_category: Places
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: customer_id
+        type: UUID
+        nullable: false
+      - name: address_type
+        type: TEXT
+        nullable: false
+        description: "billing | shipping | on_file | other"
+      - name: line_1
+        type: TEXT
+        nullable: true
+      - name: line_2
+        type: TEXT
+        nullable: true
+      - name: city
+        type: TEXT
+        nullable: true
+      - name: region
+        type: TEXT
+        nullable: true
+        description: "State / province"
+      - name: postal_code
+        type: TEXT
+        nullable: true
+      - name: country
+        type: TEXT
+        nullable: true
+        description: "ISO 3166-1 alpha-2"
+      - name: is_primary
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_customer_addresses_customer
+        columns: [customer_id, address_type]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [customer_id]
+        detail: "FK to customers(id); cascades on customer soft-delete"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [address_type]
+        detail: "address_type IN ('billing', 'shipping', 'on_file', 'other')"
+        enforcement: "database-constraint"
+
+  - name: customer_notes
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: customer_id
+        type: UUID
+        nullable: false
+      - name: note_type
+        type: TEXT
+        nullable: false
+        description: "manual | system | merge | tier_change | flag"
+      - name: body
+        type: TEXT
+        nullable: true
+        description: "Note content. May be null for system-generated structural notes."
+      - name: posted_by
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id) when human-authored; null for system events"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_customer_notes_customer_posted
+        columns: [customer_id, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [customer_id]
+        detail: "FK to customers(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [note_type]
+        detail: "note_type IN ('manual', 'system', 'merge', 'tier_change', 'flag')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [body, posted_by, posted_at]
+        detail: "Notes are immutable post-insert; audit-trail integrity for HR/legal flows"
+        enforcement: "database-trigger"
+
+  - name: customer_open_items
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: customer_id
+        type: UUID
+        nullable: false
+      - name: document_external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system invoice / order ID this open item references"
+      - name: document_type
+        type: TEXT
+        nullable: false
+        description: "invoice | credit_memo | payment | adjustment"
+      - name: amount_cents
+        type: BIGINT
+        nullable: false
+        description: "Open balance in cents; positive = receivable, negative = credit"
+      - name: aging_bucket
+        type: TEXT
+        nullable: false
+        description: "current | 30 | 60 | 90 | 120_plus"
+      - name: due_date
+        type: DATE
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | partially_paid | paid | written_off"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_customer_open_items_customer_status
+        columns: [customer_id, status, aging_bucket]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [customer_id]
+        detail: "FK to customers(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [aging_bucket]
+        detail: "aging_bucket IN ('current', '30', '60', '90', '120_plus')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('open', 'partially_paid', 'paid', 'written_off')"
+        enforcement: "database-constraint"
+
+  - name: external_identities_customer
+    schema: app
+    crdm_category: Workflows
+    extends: "app.external_identities (partial — GRO-267)"
+    description: "Bridges source-system customer IDs to Canary UUIDs. Workflow-class because it tracks resolution state across the lifecycle (provisional → confirmed → conflicted → merged)."
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: customer_id
+        type: UUID
+        nullable: false
+        description: "Canary canonical customer UUID this identity resolves to"
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Provider key (square, counterpoint, manual_import)"
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system identifier"
+      - name: resolution_state
+        type: TEXT
+        nullable: false
+        default: "'provisional'"
+        description: "provisional | confirmed | conflicted | merged"
+      - name: confidence_bps
+        type: INTEGER
+        nullable: true
+        description: "Match confidence in basis points; 10000 = certain. Null for human-confirmed."
+      - name: merged_into_customer_id
+        type: UUID
+        nullable: true
+        description: "When resolution_state=merged, the canonical customer this rolled into"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_external_identities_customer_source
+        columns: [merchant_id, source, external_id]
+        unique: true
+      - name: idx_external_identities_customer_canonical
+        columns: [customer_id, resolution_state]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [customer_id]
+        detail: "FK to customers(id)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [merchant_id, source, external_id]
+        detail: "One bridge row per (merchant, source, external_id); enables idempotent resolution"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [resolution_state]
+        detail: "resolution_state IN ('provisional', 'confirmed', 'conflicted', 'merged')"
+        enforcement: "database-constraint"
+
+  - name: loyalty_accounts
+    schema: app
+    crdm_category: People
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: customer_id
+        type: UUID
+        nullable: false
+      - name: program_code
+        type: TEXT
+        nullable: false
+        description: "Merchant-defined loyalty program identifier (matches Counterpoint LOY_PGM_COD when ingested)"
+      - name: card_number
+        type: TEXT
+        nullable: true
+        description: "Loyalty card number, when present"
+      - name: points_balance
+        type: BIGINT
+        nullable: false
+        default: "0"
+      - name: lifetime_points_earned
+        type: BIGINT
+        nullable: false
+        default: "0"
+      - name: lifetime_points_redeemed
+        type: BIGINT
+        nullable: false
+        default: "0"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | suspended"
+      - name: enrolled_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_loyalty_accounts_customer
+        columns: [customer_id, status]
+        unique: false
+      - name: idx_loyalty_accounts_card
+        columns: [merchant_id, card_number]
+        unique: true
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [customer_id]
+        detail: "FK to customers(id); enforces a loyalty account always resolves to a People row"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active', 'inactive', 'suspended')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [points_balance, lifetime_points_earned, lifetime_points_redeemed]
+        detail: "points_balance == lifetime_points_earned - lifetime_points_redeemed (modulo expiry adjustments — application enforces; trigger validates non-negative)"
+        enforcement: "application"
+
+mcp_tools:
+  - name: get_customer
+    signature: "get_customer(customer_id) -> Customer"
+    params:
+      - name: customer_id
+        type: UUID
+        required: true
+    returns:
+      - name: Customer
+        type: Object
+        description: "Full customer record including tier, status, primary address, loyalty summary"
+    idempotency: idempotent
+
+  - name: search_customers
+    signature: "search_customers(merchant_id, query?, status?, tier?) -> [Customer]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: query
+        type: String
+        required: false
+        description: "Substring match against display_name / external_id / card_number"
+      - name: status
+        type: String
+        required: false
+        description: "Optional filter: active | inactive | deleted"
+      - name: tier
+        type: String
+        required: false
+        description: "Optional filter: retail | landscaper | commercial | wholesale"
+    returns:
+      - name: customers
+        type: Array[Customer]
+        description: "Paginated matches, max 500 per call"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_customer_history
+    signature: "get_customer_history(customer_id, date_range?) -> [Transaction]"
+    params:
+      - name: customer_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: false
+    returns:
+      - name: transactions
+        type: Array[Transaction]
+        description: "Paginated transaction history, joined from T module via customer_id; newest first"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+    note: "Cross-module read: joins T's transactions table on customer_id."
+
+  - name: get_customer_open_items
+    signature: "get_customer_open_items(customer_id) -> [OpenItem]"
+    params:
+      - name: customer_id
+        type: UUID
+        required: true
+    returns:
+      - name: open_items
+        type: Array[OpenItem]
+        description: "Open AR balances per source document, with aging bucket. Sums computed application-side."
+    idempotency: idempotent
+    note: "F (Finance) is the GL co-owner; this surface exposes R's view for buyer / accounting workflows."
+
+  - name: get_customer_loyalty
+    signature: "get_customer_loyalty(customer_id) -> LoyaltyAccount"
+    params:
+      - name: customer_id
+        type: UUID
+        required: true
+    returns:
+      - name: loyalty
+        type: Object
+        description: "Loyalty account state: program code, points balance, lifetime totals, enrollment date. Returns null when customer has no loyalty enrollment."
+    idempotency: idempotent
+
+integrations:
+  upstream:
+    - module: T
+      relationship: "I_read_state_from"
+      verbs: [sale, return]
+      detail: "R derives last_seen_at, lifetime metrics, loyalty point movements from T's transaction stream"
+  downstream:
+    - module: T
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "T joins R on customer_id for transaction-customer attribution at parse time"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q (loss prevention) joins R for customer-tier-aware fraud detection — different rule thresholds per retail/landscaper/commercial"
+    - module: C
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "C joins R for B2B account customers (commercial / wholesale tiers); C extends with supplier_agreements when the customer is also a supplier"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "F co-owns customer_open_items lifecycle with R; F's GL posting consumes R's open-items view"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to any authenticated tenant role; tier-change and merge writes require manager / owner role"
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query. R never returns cross-tenant customer data."
+  pii_handling:
+    categories:
+      - customer-display-name
+      - customer-email
+      - customer-phone
+      - customer-address
+      - customer-card-number
+    retention_days: 2555
+    encryption: true
+    detail: "Customer PII (display_name + addresses + loyalty card) stored encrypted at rest. Email and phone explicitly NOT modeled in the manifest's primary_columns — when needed they live in a separate sensitive-attributes table accessed via a CRM-broker check, never direct read. Hashed identifiers (per GRO-242 PII-toggle pattern) for merchant-side observability without leaking raw PII to downstream consumers."
+
 implementation_route:
   primary: integrated-hybrid
   rationale: "Canary owns unified identity + behavioral signals; merchant tool owns CRM/loyalty campaign execution and contact management."
@@ -19,5 +548,6 @@ implementation_route:
   adr_reference: null
 
 status_notes: |
-  v1 shipping as of 2026-04-24. Minimal posture: no PII at rest, aggregate metrics only.
-  Full entity/schema/MCP-tools layers deferred to implementation phase.
+  v1 shipping as of 2026-04-24. Aggregate customer registry + tier flags + AR open-items in scope.
+  Multi-tier pricing flags (retail / landscaper / commercial / wholesale) are L&G-critical and required at install time.
+  external_identities_customer extends the partial bridge built per GRO-267 — full multi-source resolution lifecycle (provisional → confirmed → conflicted → merged) is design-spec; implementation lands with the second adapter (Counterpoint).
