@@ -9,6 +9,638 @@ ledger_relationship:
   verbs: [receipt, transfer, rTV, adjustment, cycle_count, allocation]
   impact: "D is the PRIMARY PUBLISHER of stock-ledger movements. Every receipt, transfer, RTV, adjustment, and cycle-count originates in D."
 
+# CRDM-aligned entities following Mini-5 shape.
+# Decision notes:
+# - `inventory_locations` is Places (warehouses, stockrooms, retail floors are
+#   physical locations; sub-set / extension of N's stores hierarchy).
+# - `inventory_by_location` and `transit_inventory` are Things (stock-by-location
+#   snapshots — count + value attributes per item per location).
+# - `transfer_orders` and `backorder_records` are Workflows (planned →
+#   in-transit → received → reconciled state machines).
+# - `transfer_movements` is Events (append-only ledger publish for the actual
+#   inventory shift that resolves a transfer_order).
+# Per GRO-560 Counterpoint ADR: InventoryLocations is D-primary; Counterpoint
+# upstream feeds InventoryLocations + Inventory_ByLocation + Items_ByLocation
+# + Document with transfer DOC_TYP into D's entities.
+entities:
+  - name: inventory_locations
+    schema: app
+    crdm_category: Places
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: true
+        description: "FK to N.stores(id) when location is bound to a customer-facing store; null for warehouses or DC"
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system location identifier (Counterpoint LOC_ID, Square location_id when used as inventory location)"
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Provider key: square | counterpoint | manual"
+      - name: code
+        type: TEXT
+        nullable: false
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: location_type
+        type: TEXT
+        nullable: false
+        description: "warehouse | distribution_center | stockroom | retail_floor | greenhouse | nursery_yard | bulk_yard | quarantine"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_inventory_locations_merchant_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+      - name: idx_inventory_locations_store
+        columns: [store_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: fk
+        columns: [store_id]
+        detail: "FK to N.stores(id), nullable for warehouse-only locations"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [merchant_id, source, external_id]
+        detail: "Per-merchant per-source location uniqueness"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [location_type]
+        detail: "location_type IN ('warehouse','distribution_center','stockroom','retail_floor','greenhouse','nursery_yard','bulk_yard','quarantine')"
+        enforcement: "database-constraint"
+
+  - name: inventory_by_location
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: inventory_location_id
+        type: UUID
+        nullable: false
+      - name: on_hand
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+      - name: cost_basis_cents_per_unit
+        type: BIGINT
+        nullable: true
+      - name: reorder_point
+        type: DECIMAL(18, 4)
+        nullable: true
+        description: "Below this on_hand level, get_low_stock_locations surfaces the (item, location) for ops"
+      - name: max_stock_level
+        type: DECIMAL(18, 4)
+        nullable: true
+      - name: last_received_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: last_counted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Last cycle-count reconciliation"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_inventory_by_location_item_loc
+        columns: [item_id, inventory_location_id]
+        unique: true
+      - name: idx_inventory_by_location_low_stock
+        columns: [merchant_id, on_hand, reorder_point]
+        unique: false
+        description: "Supports get_low_stock_locations queries"
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [inventory_location_id]
+        detail: "FK to inventory_locations(id)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [item_id, inventory_location_id]
+        detail: "One row per (item, location); ledger-grade single-write surface"
+        enforcement: "database-constraint"
+
+  - name: transfer_orders
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: order_number
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing transfer-order identifier (e.g., 'XFER-2026-0042'). Matches Counterpoint Document XFER DOC_NO when ingested."
+      - name: source_location_id
+        type: UUID
+        nullable: false
+      - name: destination_location_id
+        type: UUID
+        nullable: false
+      - name: requested_by
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id)"
+      - name: approved_by
+        type: UUID
+        nullable: true
+      - name: requested_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: planned_dispatch_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: actual_dispatch_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: actual_received_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'requested'"
+        description: "requested | approved | rejected | in_transit | partial_received | received | reconciled | cancelled"
+      - name: priority
+        type: TEXT
+        nullable: false
+        default: "'normal'"
+        description: "low | normal | rush — peak-season rebalancing often runs at rush priority"
+      - name: lines
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Array of {item_id, requested_qty, dispatched_qty, received_qty, variance, lot_codes}"
+      - name: notes
+        type: TEXT
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_transfer_orders_merchant_status
+        columns: [merchant_id, status, requested_at]
+        unique: false
+      - name: idx_transfer_orders_source_dest
+        columns: [source_location_id, destination_location_id, status]
+        unique: false
+      - name: idx_transfer_orders_number
+        columns: [merchant_id, order_number]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [source_location_id]
+        detail: "FK to inventory_locations(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [destination_location_id]
+        detail: "FK to inventory_locations(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('requested','approved','rejected','in_transit','partial_received','received','reconciled','cancelled')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [priority]
+        detail: "priority IN ('low','normal','rush')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [source_location_id, destination_location_id]
+        detail: "source_location_id != destination_location_id"
+        enforcement: "database-constraint"
+
+  - name: transfer_movements
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: transfer_order_id
+        type: UUID
+        nullable: true
+        description: "FK to transfer_orders(id) for transfer-driven movements; null for direct receipts/RTVs/adjustments/cycle counts"
+      - name: movement_type
+        type: TEXT
+        nullable: false
+        description: "receipt | transfer_out | transfer_in | rTV | adjustment | cycle_count | allocation"
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: from_location_id
+        type: UUID
+        nullable: true
+        description: "Null for receipts (source is supplier) and adjustments (no from-location)"
+      - name: to_location_id
+        type: UUID
+        nullable: true
+        description: "Null for RTVs (destination is supplier)"
+      - name: quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+        description: "Signed when used directionally; magnitude treated as ledger primitive"
+      - name: cost_cents_per_unit
+        type: BIGINT
+        nullable: true
+      - name: reason_code
+        type: TEXT
+        nullable: true
+        description: "Sub-classification: damage | shrink | dead_count_perishable | manager_correction | physical_count | period_close — required for adjustment + cycle_count types"
+      - name: posted_by
+        type: UUID
+        nullable: true
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: linked_evidence_id
+        type: UUID
+        nullable: true
+        description: "FK to T's evidence_records(id) for hash-chain anchoring; ensures audit trail for high-impact movements"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_transfer_movements_item_posted
+        columns: [item_id, posted_at]
+        unique: false
+      - name: idx_transfer_movements_order
+        columns: [transfer_order_id]
+        unique: false
+      - name: idx_transfer_movements_type_period
+        columns: [merchant_id, movement_type, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [movement_type]
+        detail: "movement_type IN ('receipt','transfer_out','transfer_in','rTV','adjustment','cycle_count','allocation')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [from_location_id, to_location_id]
+        detail: "Per movement_type: receipt requires to_location_id; transfer requires both; rTV requires from_location_id; adjustment + cycle_count require to_location_id; allocation requires both"
+        enforcement: "application"
+      - type: conservation
+        columns: [item_id, quantity, posted_at]
+        detail: "Movements are immutable post-insert; corrections via compensating insert (negative quantity, reason_code='manager_correction', linked to original)"
+        enforcement: "database-trigger"
+
+  - name: transit_inventory
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: transfer_order_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: from_location_id
+        type: UUID
+        nullable: false
+      - name: to_location_id
+        type: UUID
+        nullable: false
+      - name: quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+      - name: dispatched_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'in_transit'"
+        description: "in_transit | partial_received | received | lost — lost surfaces a Q (loss prevention) signal"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_transit_inventory_order_item
+        columns: [transfer_order_id, item_id]
+        unique: true
+      - name: idx_transit_inventory_status
+        columns: [merchant_id, status, dispatched_at]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [transfer_order_id]
+        detail: "FK to transfer_orders(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('in_transit','partial_received','received','lost')"
+        enforcement: "database-constraint"
+
+  - name: backorder_records
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: location_id
+        type: UUID
+        nullable: false
+      - name: customer_id
+        type: UUID
+        nullable: true
+        description: "Set when backorder is tied to a specific customer order (special-order pattern); null for general low-stock backorder"
+      - name: requested_quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+      - name: filled_quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "demand_signal | special_order | low_stock_alert | seasonal_pre_book"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | partially_filled | filled | cancelled | expired"
+      - name: requested_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: target_fill_by
+        type: DATE
+        nullable: true
+      - name: filled_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_backorder_records_item_status
+        columns: [item_id, status]
+        unique: false
+      - name: idx_backorder_records_location
+        columns: [merchant_id, location_id, status]
+        unique: false
+      - name: idx_backorder_records_customer
+        columns: [customer_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [location_id]
+        detail: "FK to inventory_locations(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [source]
+        detail: "source IN ('demand_signal','special_order','low_stock_alert','seasonal_pre_book')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('open','partially_filled','filled','cancelled','expired')"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_transfers
+    signature: "get_transfers(merchant_id, date_range, source_location_id?, destination_location_id?, status?) -> [TransferOrder]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+      - name: source_location_id
+        type: UUID
+        required: false
+      - name: destination_location_id
+        type: UUID
+        required: false
+      - name: status
+        type: String
+        required: false
+    returns:
+      - name: transfers
+        type: Array[TransferOrder]
+        description: "Paginated transfer orders with line-item summary, max 500 per call"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_inventory_by_location
+    signature: "get_inventory_by_location(item_id, inventory_location_id?) -> [InventoryRow]"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+      - name: inventory_location_id
+        type: UUID
+        required: false
+        description: "Omit for multi-location view"
+    returns:
+      - name: rows
+        type: Array[InventoryRow]
+        description: "Per-location on_hand + cost_basis + reorder_point + last counted timestamps"
+    idempotency: idempotent
+
+  - name: get_low_stock_locations
+    signature: "get_low_stock_locations(merchant_id, location_type?, threshold_override_bps?) -> [LowStockSignal]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: location_type
+        type: String
+        required: false
+      - name: threshold_override_bps
+        type: Integer
+        required: false
+        description: "Optional: surface (item, location) when on_hand falls below threshold_override_bps × reorder_point (in basis points). Default uses reorder_point as-is."
+    returns:
+      - name: signals
+        type: Array[LowStockSignal]
+        description: "Items below reorder_point with current on_hand, transit-supply, suggested transfer source candidates"
+    idempotency: idempotent
+    rate_limit: "60 calls/minute"
+
+  - name: get_transit_inventory
+    signature: "get_transit_inventory(merchant_id, status?) -> [TransitRow]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: status
+        type: String
+        required: false
+    returns:
+      - name: transit
+        type: Array[TransitRow]
+        description: "Currently in-flight stock with origin, destination, dispatched-at, expected receive window"
+    idempotency: idempotent
+
+  - name: get_transfer_status
+    signature: "get_transfer_status(transfer_order_id) -> TransferOrderDetail"
+    params:
+      - name: transfer_order_id
+        type: UUID
+        required: true
+    returns:
+      - name: TransferOrderDetail
+        type: Object
+        description: "Full transfer order with line items, transit_inventory rows, transfer_movements posted, variance summary"
+    idempotency: idempotent
+
+integrations:
+  upstream:
+    - module: external
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "D ingests Counterpoint InventoryLocations + Inventory_ByLocation + Items_ByLocation + Document with transfer DOC_TYP per SDD §6.7. Square Inventory API for square-source locations."
+    - module: S
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "D joins S.items for unit_of_measure + is_perishable when posting movements (perishable shrink adjustments default reason_code='dead_count_perishable')"
+    - module: N
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "D joins N.stores for store-bound inventory_locations.store_id resolution"
+  downstream:
+    - module: T
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "T's parsing flow respects D's inventory state for transaction-line validation (SOH check at line item)"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: [receipt]
+      detail: "F's invoice_matches workflow reads transfer_movements where movement_type=receipt for the GRN side of 3-way match"
+    - module: C
+      relationship: "subscribes_to_me"
+      verbs: [receipt]
+      detail: "C's OTB headroom calculation reads receipts to update on-hand-cost basis (cost-update events fire when invoice variance lands)"
+    - module: J
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "J's replenishment recommender reads inventory_by_location + backorder_records + transit_inventory for demand-shape calculation"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: [adjustment, cycle_count]
+      detail: "Q reads adjustment + cycle_count + transit lost-status movements for shrink-pattern detection (large adjustments without supporting documentation, or cycle-count discrepancies clustering on specific employee shifts)"
+    - module: P
+      relationship: "subscribes_to_me"
+      verbs: [transfer]
+      detail: "P's price-change events propagate to inventory_by_location.cost_basis_cents_per_unit when receipts trigger cost recalculation"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to any authenticated tenant role. Write tools split: receipt posting requires receiver / store-manager role; transfer approval requires manager + dual-approval for cross-DC transfers above merchant-config threshold; RTV + manual adjustment require manager or owner with reason_code documented."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories: []
+    retention_days: 2555
+    encryption: false
+    detail: "D holds inventory metadata only — no PII. Customer_id on backorder_records is a UUID reference; resolution to customer name happens at query time via R's PII broker."
+
 implementation_route:
   primary: integrated-hybrid
   rationale: "Canary owns receipt/transfer/RTV/adjustment movements; merchant tool owns inventory-valuation period close and accounting treatment."
@@ -19,6 +651,27 @@ implementation_route:
   adr_reference: null
 
 status_notes: |
-  v2 design. Receipt, transfer, RTV, adjustment, and cycle-count movement schemas are in scope.
-  PO matching, in-transit inventory, and receipt-authorization workflows deferred to implementation phase.
-  Reclassification movement and multi-location allocation deferred to v3.
+  v2 design. Receipt, transfer, RTV, adjustment, allocation, and cycle-count movement schemas are in scope.
+  Counterpoint InventoryLocations + Inventory_ByLocation + Items_ByLocation + transfer DOC_TYP surface
+  (SDD §6.7) maps cleanly to inventory_locations + inventory_by_location + transfer_orders + transfer_movements.
+  PO matching, in-transit inventory, and receipt-authorization workflows shipped here as transit_inventory
+  + transfer_orders.lines + integrations to F's invoice_matches.
+  Reclassification movement (RIM <-> Cost Method department migration) deferred to v3.
+
+  L&G-specific rebalancing patterns documented for ops cadence:
+  - **Apr-Jun peak season** drives heavy inter-store rebalancing as live-plant inventory shifts
+    from low-traffic warehouses to high-traffic retail floors. Transfer orders typically run at
+    rush priority, dispatched same-day, received next-day. Q monitors cycle-count variance during
+    this window because dead-count-on-perishables noise is high.
+  - **Late-Sep clearance season** drives RTV (return-to-vendor) movements for
+    end-of-season-markdown items that didn't sell — supplier credit memos negotiated on a
+    season-by-season basis, captured via transfer_movements.movement_type='rTV' with
+    linked_evidence_id pointing at the merchant-supplier credit memo.
+  - **Pre-season pre-book** (Jan-Feb special orders for spring launch inventory) populates
+    backorder_records with source='seasonal_pre_book' so J's replenishment recommender includes
+    the committed pre-book quantities in its forecast.
+
+  D's role as PRIMARY ledger publisher means every adjustment / cycle_count + every transfer's
+  resolution flows through transfer_movements.linked_evidence_id back to T's evidence_records hash chain.
+  This is what makes Canary's perpetual stock-ledger audit-grade — D is the surface that writes the
+  record, T's evidence chain is the integrity anchor.
