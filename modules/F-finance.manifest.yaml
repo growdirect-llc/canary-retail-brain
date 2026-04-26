@@ -9,6 +9,758 @@ ledger_relationship:
   verbs: [cost_update, reclassification]
   impact: "F is RECONCILER and CO-ANALYST for OTB. Publishes cost-variance adjustments to stock ledger; owns cost-method choice and GL posting."
 
+# CRDM-aligned entities following the Mini-5 (C-commercial) shape.
+# Decision notes inline:
+# - `gift_card_movements` modeled F-primary (Events) per the GRO-560 ADR — gift card *codes* (catalog) belong in S/C; gift card *movements* (activity, redemption, expiry) are tender events and live with F. Same logic as the Counterpoint SDD §6.8 mapping.
+# - `paycodes` is Workflows because it carries tender-taxonomy lifecycle (active → deprecated → retired). Counterpoint PayCode is richer than Square tender_type — captures store-credit, AR-on-account, foreign-currency, etc.
+# - `gl_postings` and `period_close_records` are both Workflows: they track outbound state (queued → posted → confirmed → reconciled) of cross-system handoff to merchant's accounting package via OAuth bridge.
+entities:
+  - name: tenders
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: transaction_id
+        type: UUID
+        nullable: false
+      - name: paycode_id
+        type: UUID
+        nullable: false
+      - name: amount_cents
+        type: BIGINT
+        nullable: false
+      - name: card_brand
+        type: TEXT
+        nullable: true
+        description: "VISA | MASTERCARD | AMEX | DISCOVER | OTHER (when paycode is card-class)"
+      - name: card_last_four
+        type: TEXT
+        nullable: true
+        description: "PAN last-4; NEVER full PAN. Encrypted at rest."
+      - name: gift_card_id
+        type: UUID
+        nullable: true
+        description: "Optional FK to gift_card_movements when tender is gift-card-as-tender"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_tenders_transaction
+        columns: [transaction_id]
+        unique: false
+      - name: idx_tenders_paycode
+        columns: [merchant_id, paycode_id, created_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [transaction_id]
+        detail: "FK to sales.transactions(id); cascades on transaction void via compensating insert"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [paycode_id]
+        detail: "FK to app.paycodes(id); enforces all tenders have a recognized paycode"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [amount_cents]
+        detail: "amount_cents != 0; zero-amount tenders are meaningless"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [amount_cents, card_brand, card_last_four, gift_card_id]
+        detail: "Tenders are immutable post-insert; corrections via compensating insert pattern (negative amount linked to original)"
+        enforcement: "database-trigger"
+
+  - name: paycodes
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing paycode identifier (matches Counterpoint PAY_COD when ingested)"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: tender_class
+        type: TEXT
+        nullable: false
+        description: "card | cash | check | gift_card | store_credit | account_charge | foreign_currency | other"
+      - name: gl_account_code
+        type: TEXT
+        nullable: true
+        description: "Merchant's GL account this paycode posts to (resolved at install time via OAuth bridge)"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | deprecated | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_paycodes_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_paycodes_tender_class
+        columns: [merchant_id, tender_class, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: unique
+        columns: [merchant_id, code]
+        detail: "Per-merchant paycode uniqueness"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [tender_class]
+        detail: "tender_class IN ('card','cash','check','gift_card','store_credit','account_charge','foreign_currency','other')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','deprecated','retired')"
+        enforcement: "database-constraint"
+
+  - name: tax_records
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: transaction_id
+        type: UUID
+        nullable: false
+      - name: tax_authority
+        type: TEXT
+        nullable: false
+        description: "Jurisdiction code (e.g., US-CA, US-CA-LA-CITY, GST)"
+      - name: tax_code
+        type: TEXT
+        nullable: false
+        description: "Merchant's tax code (matches Counterpoint TAX_COD when ingested)"
+      - name: rate_bps
+        type: INTEGER
+        nullable: false
+        description: "Tax rate in basis points (e.g., 925 = 9.25%)"
+      - name: taxable_base_cents
+        type: BIGINT
+        nullable: false
+        description: "Taxable amount before tax"
+      - name: tax_amount_cents
+        type: BIGINT
+        nullable: false
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_tax_records_transaction
+        columns: [transaction_id]
+        unique: false
+      - name: idx_tax_records_authority_period
+        columns: [merchant_id, tax_authority, created_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [transaction_id]
+        detail: "FK to sales.transactions(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [rate_bps]
+        detail: "rate_bps >= 0"
+        enforcement: "database-constraint"
+
+  - name: gift_card_movements
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: card_external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system gift card identifier (Square gift_card.id, Counterpoint GIFT_CARD_NO)"
+      - name: movement_type
+        type: TEXT
+        nullable: false
+        description: "activate | load | redeem | adjust | expire | deactivate"
+      - name: amount_cents
+        type: BIGINT
+        nullable: false
+        description: "Signed: positive for activate/load, negative for redeem/expire"
+      - name: balance_after_cents
+        type: BIGINT
+        nullable: false
+        description: "Card balance after this movement"
+      - name: linked_transaction_id
+        type: UUID
+        nullable: true
+        description: "FK to sales.transactions(id) when movement is tender-driven (load/redeem); null for system events (expire/adjust)"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_gift_card_movements_card_posted
+        columns: [merchant_id, card_external_id, posted_at]
+        unique: false
+      - name: idx_gift_card_movements_transaction
+        columns: [linked_transaction_id]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: check
+        columns: [movement_type]
+        detail: "movement_type IN ('activate','load','redeem','adjust','expire','deactivate')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [amount_cents, balance_after_cents]
+        detail: "balance_after_cents = previous_balance + amount_cents (per card_external_id sequence). Application enforces; trigger validates non-negative balance_after_cents (no overdraft)."
+        enforcement: "application"
+
+  - name: payouts
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system payout identifier (Square payout.id)"
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Provider key (square; counterpoint typically uses bank-direct)"
+      - name: payout_date
+        type: DATE
+        nullable: false
+      - name: amount_cents
+        type: BIGINT
+        nullable: false
+      - name: bank_account_last_four
+        type: TEXT
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'pending'"
+        description: "pending | sent | confirmed | failed | reversed"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_payouts_merchant_date
+        columns: [merchant_id, payout_date]
+        unique: false
+      - name: idx_payouts_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: unique
+        columns: [merchant_id, source, external_id]
+        detail: "Idempotent payout ingest"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('pending','sent','confirmed','failed','reversed')"
+        enforcement: "database-constraint"
+
+  - name: cogs_movements
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: transaction_id
+        type: UUID
+        nullable: false
+        description: "FK to the sales transaction that drove this COGS movement"
+      - name: product_id
+        type: UUID
+        nullable: false
+      - name: quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+      - name: cost_cents
+        type: BIGINT
+        nullable: false
+        description: "Cost basis at time of sale; signed (negative for sale, positive for return)"
+      - name: cost_method
+        type: TEXT
+        nullable: false
+        description: "FIFO | WEIGHTED_AVG | SPECIFIC_ID | RIM (rare; v3)"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_cogs_movements_transaction
+        columns: [transaction_id]
+        unique: false
+      - name: idx_cogs_movements_period
+        columns: [merchant_id, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [transaction_id]
+        detail: "FK to sales.transactions(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [product_id]
+        detail: "FK to app.products(id) (C-owned)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [cost_method]
+        detail: "cost_method IN ('FIFO','WEIGHTED_AVG','SPECIFIC_ID','RIM')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [quantity, cost_cents]
+        detail: "Sum of cogs_movements per product matches the perpetual ledger's quantity-and-cost-basis change for that product"
+        enforcement: "application"
+
+  - name: invoice_matches
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: po_external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system PO identifier"
+      - name: grn_external_id
+        type: TEXT
+        nullable: true
+        description: "Goods Receipt Note identifier — null until receiving completes"
+      - name: invoice_external_id
+        type: TEXT
+        nullable: true
+        description: "Supplier invoice identifier — null until supplier invoice arrives"
+      - name: supplier_id
+        type: UUID
+        nullable: false
+      - name: po_amount_cents
+        type: BIGINT
+        nullable: false
+      - name: grn_amount_cents
+        type: BIGINT
+        nullable: true
+      - name: invoice_amount_cents
+        type: BIGINT
+        nullable: true
+      - name: variance_cents
+        type: BIGINT
+        nullable: true
+        description: "Computed: invoice_amount - PO_amount (post-3-way-match)"
+      - name: match_status
+        type: TEXT
+        nullable: false
+        default: "'pending'"
+        description: "pending | po_only | po_grn | po_grn_invoice | matched | variance | disputed | resolved"
+      - name: cost_update_event_id
+        type: UUID
+        nullable: true
+        description: "When variance triggers cost_update, link to C-published cost_updates row"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_invoice_matches_supplier_status
+        columns: [supplier_id, match_status]
+        unique: false
+      - name: idx_invoice_matches_po
+        columns: [merchant_id, po_external_id]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [supplier_id]
+        detail: "FK to app.suppliers(id) (C-owned)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [match_status]
+        detail: "match_status IN ('pending','po_only','po_grn','po_grn_invoice','matched','variance','disputed','resolved')"
+        enforcement: "database-constraint"
+
+  - name: gl_postings
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: posting_type
+        type: TEXT
+        nullable: false
+        description: "sales_summary | tender_summary | cogs_movement | tax_summary | cost_variance | period_close"
+      - name: gl_package
+        type: TEXT
+        nullable: false
+        description: "quickbooks_online | xero | wave | sage | none"
+      - name: source_record_id
+        type: UUID
+        nullable: false
+        description: "FK back to the F-owned record this posting represents (transaction, period_close, invoice_match, etc.)"
+      - name: source_record_type
+        type: TEXT
+        nullable: false
+      - name: payload
+        type: JSONB
+        nullable: false
+        description: "Provider-specific posting body, generated at queue time"
+      - name: queued_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: external_posting_id
+        type: TEXT
+        nullable: true
+        description: "Identifier returned by merchant GL system on successful post"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'queued'"
+        description: "queued | posted | confirmed | failed | reconciled"
+      - name: error_detail
+        type: JSONB
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_gl_postings_status_queued
+        columns: [merchant_id, status, queued_at]
+        unique: false
+      - name: idx_gl_postings_source
+        columns: [source_record_type, source_record_id]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: check
+        columns: [posting_type]
+        detail: "posting_type IN ('sales_summary','tender_summary','cogs_movement','tax_summary','cost_variance','period_close')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [gl_package]
+        detail: "gl_package IN ('quickbooks_online','xero','wave','sage','none')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('queued','posted','confirmed','failed','reconciled')"
+        enforcement: "database-constraint"
+
+  - name: period_close_records
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: true
+        description: "Null for merchant-wide closes; set for per-store day-end"
+      - name: period_type
+        type: TEXT
+        nullable: false
+        description: "day | week | month | quarter | year"
+      - name: period_start
+        type: DATE
+        nullable: false
+      - name: period_end
+        type: DATE
+        nullable: false
+      - name: closed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Null until period is finalized; non-null once gl_postings have been queued"
+      - name: closed_by
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id) when human-finalized; null for system-finalized"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | closing | closed | locked | reopened"
+      - name: total_sales_cents
+        type: BIGINT
+        nullable: true
+      - name: total_tax_cents
+        type: BIGINT
+        nullable: true
+      - name: total_payouts_cents
+        type: BIGINT
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_period_close_records_period
+        columns: [merchant_id, period_type, period_start, period_end]
+        unique: true
+      - name: idx_period_close_records_status
+        columns: [merchant_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: check
+        columns: [period_type]
+        detail: "period_type IN ('day','week','month','quarter','year')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('open','closing','closed','locked','reopened')"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [merchant_id, period_type, period_start, period_end]
+        detail: "One close record per (merchant, period_type, period_start, period_end); reopens update status, never insert duplicate"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_payments
+    signature: "get_payments(merchant_id, date_range, tender_class?) -> [Tender]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+      - name: tender_class
+        type: String
+        required: false
+        description: "Optional filter: card | cash | check | gift_card | store_credit | account_charge | foreign_currency | other"
+    returns:
+      - name: tenders
+        type: Array[Tender]
+        description: "Paginated tenders with paycode + transaction join, max 1000 per call"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_tax_summary
+    signature: "get_tax_summary(merchant_id, date_range, store_id?) -> TaxSummary"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+    returns:
+      - name: TaxSummary
+        type: Object
+        description: "Aggregate by tax_authority + tax_code: taxable_base_cents, tax_amount_cents, transaction_count"
+    idempotency: idempotent
+    rate_limit: "60 calls/minute"
+
+  - name: get_gift_card_balance
+    signature: "get_gift_card_balance(merchant_id, card_external_id) -> GiftCardState"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: card_external_id
+        type: String
+        required: true
+    returns:
+      - name: GiftCardState
+        type: Object
+        description: "Current balance + lifetime loaded + lifetime redeemed + status (active/expired/deactivated). Sum-of-movements with latest balance_after_cents."
+    idempotency: idempotent
+
+  - name: get_day_end_close
+    signature: "get_day_end_close(merchant_id, store_id, date) -> PeriodCloseRecord"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: true
+      - name: date
+        type: Date
+        required: true
+    returns:
+      - name: PeriodCloseRecord
+        type: Object
+        description: "Day-end close for the (store, date): totals, status, closed_by, posted gl_postings reference. Returns null for not-yet-closed periods."
+    idempotency: idempotent
+
+  - name: get_invoice_match_status
+    signature: "get_invoice_match_status(merchant_id, po_external_id) -> InvoiceMatch"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: po_external_id
+        type: String
+        required: true
+    returns:
+      - name: InvoiceMatch
+        type: Object
+        description: "3-way match state: PO + GRN + Invoice amounts, variance, match_status, linked cost_update event when variance triggered C-side adjustment"
+    idempotency: idempotent
+
+  - name: get_pending_gl_posts
+    signature: "get_pending_gl_posts(merchant_id, gl_package?) -> [GLPosting]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: gl_package
+        type: String
+        required: false
+        description: "Optional filter: quickbooks_online | xero | wave | sage"
+    returns:
+      - name: postings
+        type: Array[GLPosting]
+        description: "GL postings in queued or failed status — outbox view for ops dashboards. Paginated 500 per call."
+    idempotency: idempotent-on-key
+    rate_limit: "60 calls/minute"
+    note: "Operational tool; merchants don't call this — ops + Owl do."
+
+integrations:
+  upstream:
+    - module: T
+      relationship: "I_read_state_from"
+      verbs: [sale, return]
+      detail: "F derives tenders, taxes, COGS, gift-card movements from T's transaction stream"
+    - module: C
+      relationship: "I_read_state_from"
+      verbs: [cost_update]
+      detail: "F subscribes to C's cost_update events to post cost-variance entries to GL via gl_postings"
+    - module: D
+      relationship: "I_read_state_from"
+      verbs: [receipt]
+      detail: "F reads D's receipt events for the GRN side of 3-way invoice match"
+    - module: R
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "F co-owns customer_open_items lifecycle with R; F's GL posting consumes R's open-items aging buckets"
+  downstream:
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q (loss prevention) reads invoice_matches.variance_cents for supplier-fraud detection (consistent over-invoicing patterns)"
+    - module: external
+      relationship: "I_post_to"
+      verbs: []
+      detail: "F's gl_postings are sent via OAuth bridge to merchant's accounting package (QuickBooks Online / Xero / Wave / Sage); see integrated-hybrid implementation_route"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer for tenant access. GL bridge writes (gl_postings posted_at update) require an additional per-tenant OAuth scope to the merchant's accounting package — credentials stored encrypted, rotated on package-side rotation. Period-close close/reopen actions require manager / owner role."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories:
+      - card-last-four
+      - bank-account-last-four
+      - gift-card-external-id
+    retention_days: 2555
+    encryption: true
+    detail: "Card last-4 and bank-account last-4 stored encrypted at rest. Full PAN never stored — Square handles tokenization, Counterpoint masks before API exposure. Gift card external IDs are hashed in audit logs to prevent card-stuffing reconnaissance via Canary's surface."
+
 implementation_route:
   primary: integrated-hybrid
   rationale: "Canary owns 3-way invoice match + COGS posting events; merchant tool owns GL, A/P, A/R, P&L (QuickBooks, Xero, Wave)."
@@ -23,3 +775,4 @@ status_notes: |
   v2 design per v2.F ADR (Option C — Integrated Hybrid). PO tracking, supplier invoicing, 3-way match, and cost-method (Cost Method only, not RIM)
   are in scope. Cost-variance GL posting via OAuth bridge to QBO/Xero/Wave. RIM support deferred to v3.
   Perpetual GL reconciliation reporting deferred to v2.1.
+  L&G specifics: gift-card-as-tender is common (gift cards bought as gifts, redeemed in plant + outdoor sections). gift_card_movements tracking ensures the tender mix is accurately attributed to its underlying card identity for fraud detection (Q reads this).
