@@ -9,6 +9,500 @@ ledger_relationship:
   verbs: []
   impact: "N is a Things registry that mirrors vendor device state. No direct ledger movements; N is the FK target for device-conditioned transaction context."
 
+# CRDM-aligned entity declarations following the Mini-5 (C-commercial) shape.
+# Decision notes inline:
+# - `stores` and `stations` are Places — they are physical locations where People work and Things are operated. Matches the Mini-5 departments-as-Places ruling.
+# - `devices` are Things — specific hardware (printer, scanner, scale, terminal) bound to a station. Things have identifiers that span systems (ARTS Device identity, asset tag, MAC address).
+# - `device_configs` is Workflows — config-snapshot lifecycle (active → superseded → rolled-back) with effective dating; multi-source authority (Canary push vs MDM push vs vendor cloud push) makes this stateful.
+# - `tokenization_records` is Events — append-only audit trail for the 3 Counterpoint endpoints that don't require APIKey (NSPTransaction, Store/Tokenize, TokenizeInfo) per SDD §6.3. Each tokenization request is a discrete ledger-shaped event.
+entities:
+  - name: stores
+    schema: app
+    crdm_category: Places
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system store identifier (Square location_id, Counterpoint STR_ID)"
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Provider key: square | counterpoint | manual"
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing short identifier (e.g., 'NORTH-MAIN')"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: address_line_1
+        type: TEXT
+        nullable: true
+      - name: city
+        type: TEXT
+        nullable: true
+      - name: region
+        type: TEXT
+        nullable: true
+      - name: postal_code
+        type: TEXT
+        nullable: true
+      - name: country
+        type: TEXT
+        nullable: true
+      - name: timezone
+        type: TEXT
+        nullable: false
+        default: "'UTC'"
+        description: "IANA tz name (e.g., 'America/Los_Angeles'); critical for day-end close + after-hours detection"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | closed"
+      - name: opened_at
+        type: DATE
+        nullable: true
+      - name: closed_at
+        type: DATE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_stores_merchant_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+      - name: idx_stores_merchant_status
+        columns: [merchant_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: unique
+        columns: [merchant_id, source, external_id]
+        detail: "Per-merchant per-source store uniqueness; idempotent ingest"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','inactive','closed')"
+        enforcement: "database-constraint"
+
+  - name: stations
+    schema: app
+    crdm_category: Places
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: external_id
+        type: TEXT
+        nullable: false
+        description: "Source-system station identifier (Square device.id, Counterpoint STA_ID)"
+      - name: source
+        type: TEXT
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing station code (e.g., 'REG-1', 'GARDEN-CHECKOUT-2')"
+      - name: name
+        type: TEXT
+        nullable: true
+      - name: station_type
+        type: TEXT
+        nullable: false
+        default: "'register'"
+        description: "register | self_checkout | mobile | back_office | kitchen_display | scale_only"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_stations_store
+        columns: [store_id, status]
+        unique: false
+      - name: idx_stations_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [store_id]
+        detail: "FK to stores(id); cascades on store close"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [station_type]
+        detail: "station_type IN ('register','self_checkout','mobile','back_office','kitchen_display','scale_only')"
+        enforcement: "database-constraint"
+
+  - name: devices
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: station_id
+        type: UUID
+        nullable: true
+        description: "Null when device is in inventory but not yet bound to a station"
+      - name: serial_number
+        type: TEXT
+        nullable: true
+      - name: mac_address
+        type: TEXT
+        nullable: true
+      - name: device_type
+        type: TEXT
+        nullable: false
+        description: "terminal | scanner | scale | printer | cash_drawer | card_reader | display | kiosk | iot_sensor"
+      - name: vendor
+        type: TEXT
+        nullable: true
+        description: "Manufacturer (Square, Verifone, Star, Zebra, Honeywell, etc.)"
+      - name: model
+        type: TEXT
+        nullable: true
+      - name: firmware_version
+        type: TEXT
+        nullable: true
+      - name: asset_tag
+        type: TEXT
+        nullable: true
+        description: "Merchant's internal asset-management tag"
+      - name: health_status
+        type: TEXT
+        nullable: false
+        default: "'unknown'"
+        description: "healthy | degraded | offline | retired | unknown"
+      - name: last_seen_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_devices_station
+        columns: [station_id, status]
+        unique: false
+      - name: idx_devices_merchant_type
+        columns: [merchant_id, device_type, status]
+        unique: false
+      - name: idx_devices_serial
+        columns: [merchant_id, serial_number]
+        unique: true
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [station_id]
+        detail: "FK to stations(id), nullable for inventory-only devices"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [device_type]
+        detail: "device_type IN ('terminal','scanner','scale','printer','cash_drawer','card_reader','display','kiosk','iot_sensor')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [health_status]
+        detail: "health_status IN ('healthy','degraded','offline','retired','unknown')"
+        enforcement: "database-constraint"
+
+  - name: device_configs
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: device_id
+        type: UUID
+        nullable: false
+      - name: config_source
+        type: TEXT
+        nullable: false
+        description: "canary_push | mdm_push | vendor_cloud | manual"
+      - name: payload
+        type: JSONB
+        nullable: false
+        description: "Config snapshot as ingested; provider-shaped"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Null while current; non-null when superseded by next config"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | superseded | rolled_back | failed"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_device_configs_device_current
+        columns: [device_id, effective_end]
+        unique: false
+      - name: idx_device_configs_source
+        columns: [merchant_id, config_source, created_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [device_id]
+        detail: "FK to devices(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [config_source]
+        detail: "config_source IN ('canary_push','mdm_push','vendor_cloud','manual')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','superseded','rolled_back','failed')"
+        enforcement: "database-constraint"
+
+  - name: tokenization_records
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: device_id
+        type: UUID
+        nullable: true
+      - name: station_id
+        type: UUID
+        nullable: true
+      - name: endpoint
+        type: TEXT
+        nullable: false
+        description: "Counterpoint endpoint exercised: NSPTransaction | StoreTokenize | TokenizeInfo (the 3 endpoints that don't require APIKey per SDD §6.3)"
+      - name: token_external_id
+        type: TEXT
+        nullable: false
+        description: "Tokenization service identifier returned by the device's gateway"
+      - name: payment_processor
+        type: TEXT
+        nullable: true
+        description: "Monetra | Heartland | Worldpay | First Data | other"
+      - name: linked_transaction_id
+        type: UUID
+        nullable: true
+        description: "FK to sales.transactions(id) when tokenization completed and resulted in a payment"
+      - name: result
+        type: TEXT
+        nullable: false
+        description: "approved | declined | timeout | error | abandoned"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_tokenization_records_device_created
+        columns: [device_id, created_at]
+        unique: false
+      - name: idx_tokenization_records_token
+        columns: [merchant_id, token_external_id]
+        unique: true
+      - name: idx_tokenization_records_transaction
+        columns: [linked_transaction_id]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: check
+        columns: [endpoint]
+        detail: "endpoint IN ('NSPTransaction','StoreTokenize','TokenizeInfo')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [result]
+        detail: "result IN ('approved','declined','timeout','error','abandoned')"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_stores
+    signature: "get_stores(merchant_id, status?) -> [Store]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: status
+        type: String
+        required: false
+        description: "Optional filter: active | inactive | closed"
+    returns:
+      - name: stores
+        type: Array[Store]
+        description: "All stores for the merchant; rarely needs pagination"
+    idempotency: idempotent
+
+  - name: get_store
+    signature: "get_store(store_id) -> Store"
+    params:
+      - name: store_id
+        type: UUID
+        required: true
+    returns:
+      - name: Store
+        type: Object
+        description: "Single store with stations + active devices summary attached"
+    idempotency: idempotent
+
+  - name: get_store_stations
+    signature: "get_store_stations(store_id) -> [Station]"
+    params:
+      - name: store_id
+        type: UUID
+        required: true
+    returns:
+      - name: stations
+        type: Array[Station]
+        description: "Stations for the store with bound devices summary"
+    idempotency: idempotent
+
+  - name: get_device_config
+    signature: "get_device_config(device_id, at?) -> DeviceConfig"
+    params:
+      - name: device_id
+        type: UUID
+        required: true
+      - name: at
+        type: Timestamp
+        required: false
+        description: "Optional point-in-time lookup; defaults to current"
+    returns:
+      - name: DeviceConfig
+        type: Object
+        description: "Effective device_configs row at the requested time. Useful for auditing what config was live during an incident."
+    idempotency: idempotent
+
+  - name: get_device_inventory
+    signature: "get_device_inventory(merchant_id, store_id?, device_type?, health_status?) -> [Device]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+      - name: device_type
+        type: String
+        required: false
+      - name: health_status
+        type: String
+        required: false
+    returns:
+      - name: devices
+        type: Array[Device]
+        description: "Devices matching filters with current health + last_seen_at + station binding"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+integrations:
+  upstream:
+    - module: external
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "N ingests from Square Locations + Devices APIs (square source) and Counterpoint Store / Store_Station / Device_Config endpoints (counterpoint source). MDM webhooks (Jamf / Kandji) feed device_configs when the merchant authorizes."
+  downstream:
+    - module: T
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "T validates store_id + station_id + device_id references at parse time; transactions without a valid device link are rejected"
+    - module: L
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "L joins N for clock-in attribution (which terminal punched the timecard)"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q tags detection events by store + station + device for blast-radius scoping (e.g., 'fraud across all garden-checkout stations' vs 'one rogue device')"
+    - module: S
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "S (v3) joins N for foot-traffic-vs-staffing attribution when iot_sensor devices report"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "F's period_close_records can scope to (store, date) — N supplies the store hierarchy"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to any authenticated tenant role; write tools (device_configs.config_source=canary_push, station re-bind) require manager / owner role."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories:
+      - device-serial-number
+      - device-mac-address
+      - device-asset-tag
+    retention_days: 2555
+    encryption: false
+    detail: "Device identifiers (serial / MAC / asset tag) are merchant-asset metadata, not PII in the usual sense — but redacted in audit logs to prevent fingerprinting attacks. tokenization_records.token_external_id is opaque per the gateway's tokenization model — never carries PAN data."
+
 implementation_route:
   primary: integrated-hybrid
   rationale: "Canary owns device registry + telemetry; merchant tool owns MDM (Jamf, Kandji) and device procurement."
@@ -20,4 +514,5 @@ implementation_route:
 
 status_notes: |
   v1 shipping as of 2026-04-24. Model and schema production-ready; live Square sync gated on OAuth scope expansion.
-  Full MCP-tools and telemetry-dashboard layers deferred to implementation phase.
+  Counterpoint Store / Store_Station / Device_Config + StoresTokenized / StoreTokenizeInfo / NSPTransaction endpoints land here per SDD §6.3.
+  IoT vendor adapters (foot-traffic, RFID, video) deferred to v3 per IoT vendor ADR — out of scope for this manifest.
