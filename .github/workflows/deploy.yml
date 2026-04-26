@@ -70,6 +70,9 @@ jobs:
         working-directory: quartz
         run: npx quartz build
 
+      - name: Write CNAME
+        run: echo "crb.growdirect.io" > quartz/public/CNAME
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
