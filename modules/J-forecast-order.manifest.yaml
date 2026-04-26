@@ -2,12 +2,723 @@ prefix: J
 name: forecast-order
 version: v2
 status: design
-purpose: "Demand forecasting, replenishment-point calculation, and automated PO recommendation constrained by OTB headroom."
+purpose: "Demand forecasting, replenishment-point calculation, vendor management, and automated PO recommendation constrained by OTB headroom."
 
 ledger_relationship:
   role: subscriber
   verbs: [receipt, sale, return, rTV, adjustment]
   impact: "J is SUBSCRIBER for movement history and PUBLISHER of PO recommendations. Reads ledger to forecast demand; outputs recommendations to F."
+
+# CRDM-aligned entities following Mini-5 shape.
+# Decision notes:
+# - `vendors` is People — supplier identity (parallel to C.suppliers; J's
+#   vendors entity is the J-owned view focused on lead time + reliability,
+#   distinct from C's supplier-master perspective on cost + contracts).
+# - `purchase_orders` is Workflows (lifecycle: draft → sent → acknowledged →
+#   shipped → received → reconciled → closed | cancelled).
+# - `purchase_order_lines` is Things (per-PO line-item catalog; SKU + qty +
+#   unit-cost snapshot; immutable post-PO-acknowledgement).
+# - `forecast_runs` is Workflows — model-execution audit trail (run_id, model,
+#   parameters, status; per-merchant per-period batch).
+# - `forecast_outputs` is Things — projection rows per (item, store, period);
+#   the actual demand prediction artifact.
+# - `replenishment_recommendations` is Workflows — system-generated suggestions
+#   that buyers review and approve/reject; lifecycle: pending → approved →
+#   converted_to_po | rejected | expired.
+# - `vendor_performance_records` is Events — append-only log of fulfillment
+#   metrics per PO (on-time, fill-rate, cost variance).
+entities:
+  - name: vendors
+    schema: app
+    crdm_category: People
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_vendor_code
+        type: TEXT
+        nullable: true
+        description: "Source-system vendor code (Counterpoint VEND_NO when ingested)"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: vendor_type
+        type: TEXT
+        nullable: false
+        description: "live_plant_nursery | hard_goods | chemicals | tools | seasonal_supplier | services"
+      - name: contact_email
+        type: TEXT
+        nullable: true
+        description: "PII — encrypted at rest"
+      - name: contact_phone
+        type: TEXT
+        nullable: true
+        description: "PII — encrypted at rest"
+      - name: lead_time_days
+        type: INTEGER
+        nullable: true
+        description: "Standard lead time from PO to receipt; live-plant suppliers often 90-150 days vs hard-goods 7-30"
+      - name: drive_radius_miles
+        type: INTEGER
+        nullable: true
+        description: "L&G-specific: live-plant vendors have regional drive-radius constraints (live plants don't ship cross-country well)"
+      - name: minimum_order_cents
+        type: BIGINT
+        nullable: true
+      - name: payment_terms
+        type: TEXT
+        nullable: true
+        description: "Net-30, 2/10 Net-30, COD, etc."
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | terminated | suspended"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_vendors_merchant_external
+        columns: [merchant_id, external_vendor_code]
+        unique: true
+      - name: idx_vendors_merchant_type_status
+        columns: [merchant_id, vendor_type, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: check
+        columns: [vendor_type]
+        detail: "vendor_type IN ('live_plant_nursery','hard_goods','chemicals','tools','seasonal_supplier','services')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','inactive','terminated','suspended')"
+        enforcement: "database-constraint"
+
+  - name: purchase_orders
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: po_number
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing PO identifier (matches Counterpoint Document PO DOC_NO when ingested)"
+      - name: vendor_id
+        type: UUID
+        nullable: false
+      - name: destination_location_id
+        type: UUID
+        nullable: false
+        description: "FK to D.inventory_locations(id) — the receiving location"
+      - name: requested_by
+        type: UUID
+        nullable: true
+      - name: approved_by
+        type: UUID
+        nullable: true
+      - name: po_date
+        type: DATE
+        nullable: false
+      - name: requested_ship_date
+        type: DATE
+        nullable: true
+      - name: actual_ship_date
+        type: DATE
+        nullable: true
+      - name: actual_receive_date
+        type: DATE
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'draft'"
+        description: "draft | submitted | acknowledged | partial_shipped | shipped | partial_received | received | reconciled | closed | cancelled"
+      - name: total_cost_cents
+        type: BIGINT
+        nullable: false
+        default: "0"
+      - name: otb_constraint_check
+        type: TEXT
+        nullable: false
+        default: "'pending'"
+        description: "pending | within_otb | exceeds_otb_warning | exceeds_otb_blocked — populated by C.OTB validation at submit"
+      - name: source_recommendation_id
+        type: UUID
+        nullable: true
+        description: "FK to replenishment_recommendations(id) when PO originated from system recommendation; null for manual PO"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_purchase_orders_merchant_status
+        columns: [merchant_id, status, po_date]
+        unique: false
+      - name: idx_purchase_orders_vendor_status
+        columns: [vendor_id, status]
+        unique: false
+      - name: idx_purchase_orders_number
+        columns: [merchant_id, po_number]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [vendor_id]
+        detail: "FK to vendors(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [destination_location_id]
+        detail: "FK to D.inventory_locations(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','submitted','acknowledged','partial_shipped','shipped','partial_received','received','reconciled','closed','cancelled')"
+        enforcement: "database-constraint"
+
+  - name: purchase_order_lines
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: purchase_order_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: ordered_quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+      - name: unit_cost_cents
+        type: BIGINT
+        nullable: false
+      - name: shipped_quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+      - name: received_quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+        default: "0"
+      - name: line_status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | partial_shipped | shipped | partial_received | received | cancelled | substituted"
+      - name: substitution_item_id
+        type: UUID
+        nullable: true
+        description: "When line_status=substituted (vendor sent different SKU), FK to the substitute item"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_purchase_order_lines_po
+        columns: [purchase_order_id, line_status]
+        unique: false
+      - name: idx_purchase_order_lines_item
+        columns: [item_id, line_status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [purchase_order_id]
+        detail: "FK to purchase_orders(id); cascades on PO cancel"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [line_status]
+        detail: "line_status IN ('open','partial_shipped','shipped','partial_received','received','cancelled','substituted')"
+        enforcement: "database-constraint"
+
+  - name: forecast_runs
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: model_name
+        type: TEXT
+        nullable: false
+        description: "velocity_average | velocity_with_variance | seasonal_decomposition | ml_xgboost | manual_override"
+      - name: model_version
+        type: TEXT
+        nullable: false
+      - name: parameters
+        type: JSONB
+        nullable: false
+        default: "'{}'"
+        description: "Model-specific tuning parameters (lookback weeks, seasonality multipliers, store filter, etc.)"
+      - name: forecast_horizon_weeks
+        type: INTEGER
+        nullable: false
+      - name: started_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: completed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'running'"
+        description: "running | completed | failed | superseded"
+      - name: items_forecasted_count
+        type: INTEGER
+        nullable: false
+        default: "0"
+      - name: error_detail
+        type: JSONB
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_forecast_runs_merchant_started
+        columns: [merchant_id, started_at]
+        unique: false
+      - name: idx_forecast_runs_status
+        columns: [merchant_id, status, started_at]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: check
+        columns: [model_name]
+        detail: "model_name IN ('velocity_average','velocity_with_variance','seasonal_decomposition','ml_xgboost','manual_override')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('running','completed','failed','superseded')"
+        enforcement: "database-constraint"
+
+  - name: forecast_outputs
+    schema: metrics
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: forecast_run_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: period_start
+        type: DATE
+        nullable: false
+      - name: period_end
+        type: DATE
+        nullable: false
+      - name: predicted_demand
+        type: DECIMAL(18, 4)
+        nullable: false
+      - name: confidence_lower
+        type: DECIMAL(18, 4)
+        nullable: true
+      - name: confidence_upper
+        type: DECIMAL(18, 4)
+        nullable: true
+      - name: rop_quantity
+        type: DECIMAL(18, 4)
+        nullable: true
+        description: "Reorder-point quantity computed from forecast + lead time + safety stock"
+      - name: eoq_quantity
+        type: DECIMAL(18, 4)
+        nullable: true
+        description: "Economic order quantity"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_forecast_outputs_run_item_store
+        columns: [forecast_run_id, item_id, store_id]
+        unique: true
+      - name: idx_forecast_outputs_item_period
+        columns: [merchant_id, item_id, store_id, period_start]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [forecast_run_id]
+        detail: "FK to forecast_runs(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [predicted_demand]
+        detail: "predicted_demand >= 0"
+        enforcement: "database-constraint"
+
+  - name: replenishment_recommendations
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: forecast_run_id
+        type: UUID
+        nullable: true
+        description: "FK to forecast_runs(id) when system-generated; null for manual recommendation"
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: vendor_id
+        type: UUID
+        nullable: false
+      - name: destination_location_id
+        type: UUID
+        nullable: false
+      - name: recommended_quantity
+        type: DECIMAL(18, 4)
+        nullable: false
+      - name: recommended_unit_cost_cents
+        type: BIGINT
+        nullable: true
+      - name: rationale
+        type: JSONB
+        nullable: false
+        default: "'{}'"
+        description: "Inputs to the recommendation: forecasted demand, current SOH, on-order qty, transit qty, OTB headroom, lead time"
+      - name: priority
+        type: TEXT
+        nullable: false
+        default: "'normal'"
+        description: "low | normal | high | urgent — urgent surfaces stockout risk"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'pending'"
+        description: "pending | approved | rejected | converted_to_po | expired"
+      - name: reviewed_by
+        type: UUID
+        nullable: true
+      - name: reviewed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: converted_purchase_order_id
+        type: UUID
+        nullable: true
+        description: "FK to purchase_orders(id) when status=converted_to_po"
+      - name: expires_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "When recommendation auto-expires (typically 7 days for non-urgent)"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_replenishment_recommendations_status
+        columns: [merchant_id, status, priority]
+        unique: false
+      - name: idx_replenishment_recommendations_item
+        columns: [item_id, status]
+        unique: false
+      - name: idx_replenishment_recommendations_vendor
+        columns: [vendor_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to S.items(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [vendor_id]
+        detail: "FK to vendors(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [priority]
+        detail: "priority IN ('low','normal','high','urgent')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('pending','approved','rejected','converted_to_po','expired')"
+        enforcement: "database-constraint"
+
+  - name: vendor_performance_records
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: vendor_id
+        type: UUID
+        nullable: false
+      - name: purchase_order_id
+        type: UUID
+        nullable: false
+      - name: on_time_score_bps
+        type: INTEGER
+        nullable: false
+        description: "10000 = on-time-or-early; lower = late. Computed: actual_receive_date vs requested_ship_date"
+      - name: fill_rate_bps
+        type: INTEGER
+        nullable: false
+        description: "10000 = full fill; lower = short-shipped or substituted. Computed: received_qty / ordered_qty across PO lines"
+      - name: cost_variance_bps
+        type: INTEGER
+        nullable: false
+        description: "0 = on-cost; positive = over (vendor invoiced higher), negative = under. Tied to F.invoice_matches"
+      - name: substitution_count
+        type: INTEGER
+        nullable: false
+        default: "0"
+      - name: damage_returns_count
+        type: INTEGER
+        nullable: false
+        default: "0"
+      - name: assessed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_vendor_performance_records_vendor_assessed
+        columns: [vendor_id, assessed_at]
+        unique: false
+      - name: idx_vendor_performance_records_po
+        columns: [purchase_order_id]
+        unique: true
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [vendor_id]
+        detail: "FK to vendors(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [purchase_order_id]
+        detail: "FK to purchase_orders(id)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [purchase_order_id]
+        detail: "One performance record per PO; immutable post-assessment"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_open_purchase_orders
+    signature: "get_open_purchase_orders(merchant_id, vendor_id?, status?, destination_location_id?) -> [PurchaseOrder]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: vendor_id
+        type: UUID
+        required: false
+      - name: status
+        type: String
+        required: false
+      - name: destination_location_id
+        type: UUID
+        required: false
+    returns:
+      - name: orders
+        type: Array[PurchaseOrder]
+        description: "Paginated POs with line summary, max 500 per call. Default filter excludes closed/cancelled unless status set."
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_vendor
+    signature: "get_vendor(vendor_id) -> VendorDetail"
+    params:
+      - name: vendor_id
+        type: UUID
+        required: true
+    returns:
+      - name: VendorDetail
+        type: Object
+        description: "Vendor record + recent PO history + 12-month performance rollup (on-time, fill-rate, cost-variance, substitutions)"
+    idempotency: idempotent
+
+  - name: get_replenishment_recommendations
+    signature: "get_replenishment_recommendations(merchant_id, store_id?, item_id?, status?) -> [Recommendation]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+      - name: item_id
+        type: UUID
+        required: false
+      - name: status
+        type: String
+        required: false
+        description: "Defaults to pending"
+    returns:
+      - name: recommendations
+        type: Array[Recommendation]
+        description: "Pending recommendations with rationale + suggested vendor + priority"
+    idempotency: idempotent-on-key
+
+  - name: get_forecast
+    signature: "get_forecast(item_id, store_id, horizon_weeks) -> ForecastSeries"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: true
+      - name: horizon_weeks
+        type: Integer
+        required: true
+    returns:
+      - name: ForecastSeries
+        type: Object
+        description: "Most-recent forecast for (item, store) over horizon_weeks: predicted_demand per period + confidence band + ROP/EOQ derived"
+    idempotency: idempotent
+
+  - name: get_vendor_performance
+    signature: "get_vendor_performance(vendor_id, date_range?) -> VendorPerformance"
+    params:
+      - name: vendor_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: false
+        description: "Defaults to last 12 months"
+    returns:
+      - name: VendorPerformance
+        type: Object
+        description: "Aggregate on-time / fill-rate / cost-variance / substitution / damage metrics across the window"
+    idempotency: idempotent
+    rate_limit: "60 calls/minute"
+
+integrations:
+  upstream:
+    - module: T
+      relationship: "I_read_state_from"
+      verbs: [sale, return]
+      detail: "J reads T transactions for sales velocity — primary forecast input"
+    - module: D
+      relationship: "I_read_state_from"
+      verbs: [receipt, transfer, adjustment, cycle_count]
+      detail: "J reads D inventory state (on_hand + on_order + transit + backorder_records) for replenishment math"
+    - module: S
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "J reads S.items for is_seasonal + season_start_month/season_end_month + is_perishable + shelf_life_days — all critical forecast modifiers"
+    - module: C
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "J reads C.suppliers for supplier-tier pricing + C's get_otb_headroom_for_department to constrain recommendations to OTB capacity"
+    - module: F
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "J reads F.invoice_matches.variance_cents to compute vendor cost_variance_bps for performance tracking"
+  downstream:
+    - module: D
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "D's transit_inventory + backorder_records reflect J's approved POs in flight"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "F's invoice_matches workflow keys on J.purchase_orders for PO + GRN + Invoice 3-way match"
+    - module: C
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "C's OTB ledger consumes J's purchase_orders.total_cost_cents at submit-time for headroom decrement"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q reads vendor_performance_records for supplier-fraud detection (consistent over-invoicing, repeat short-shipment patterns)"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to buyer / merchandiser / manager / owner roles. Write tools split: PO create + line edit require buyer; PO submit-to-vendor + recommendation approve require manager when above merchant-config dollar threshold; vendor master changes require owner."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories:
+      - vendor-contact-email
+      - vendor-contact-phone
+    retention_days: 2555
+    encryption: true
+    detail: "Vendor contact PII (email + phone) encrypted at rest. Vendor-to-merchant relationships are commercial, not consumer PII — concerns are commercial confidentiality (vendor pricing terms) more than personal-data law. Audit logs hash vendor_id at write."
 
 implementation_route:
   primary: integrated-hybrid
@@ -16,9 +727,26 @@ implementation_route:
   period_owner: merchant-system
   alternatives_considered:
     - "Package-integration to merchant ERP — rejected: most SMBs lack ERP; Canary must own"
+    - "Counterpoint replenishment engine reuse — partially rejected: Counterpoint has ReplenishmentOrder endpoints (per SDD §6.9 — verify availability) but the ML-driven forecast logic is Canary-native; if Counterpoint replenishment exists at the merchant we'll cross-reference but not replace"
   adr_reference: null
 
 status_notes: |
-  v2 design. Demand forecasting (velocity + variance), ROP/EOQ calculation, and PO recommendation generation are in scope.
-  MCP tools for planner/buyer workflows deferred to implementation phase. Advanced features (seasonal decomposition, ML modeling,
-  multi-location allocation optimization) deferred to v3+.
+  v2 design. Demand forecasting (velocity + variance + seasonal decomposition), ROP/EOQ calculation, vendor master,
+  PO lifecycle, replenishment recommendation engine, and vendor performance scoring in scope.
+  Counterpoint upstream limited per SDD §6.9 — Vendor + Document with PO DOC_TYP confirmed; ReplenishmentOrder endpoints pending verification.
+  Advanced features (multi-location allocation optimization, cross-vendor consolidation, ML-driven model selection) deferred to v3+.
+  ML forecast engine internals (model training pipeline, feature store schema) are a separate dispatch — this manifest declares
+  the model-execution surface (forecast_runs.model_name + .parameters) but not the ML infrastructure.
+
+  L&G specifics shipped in this manifest:
+  - **5-month plant-supply lead time** — vendors.lead_time_days defaults to ~120 for vendor_type=live_plant_nursery;
+    Q4 forecast horizon must reach 26-week (6-month) projections to drive Q1 buy decisions for Apr-Sep peak season
+  - **Regional drive-radius constraints** — vendors.drive_radius_miles ensures live-plant recommendations route to vendors
+    within trucking distance (live perennials don't survive 3-day cross-country shipping); recommendations engine excludes
+    out-of-radius vendors for live-plant categories
+  - **Seasonal pre-book carry-forward** — replenishment_recommendations.rationale carries the 'seasonal_pre_book' source
+    when the recommendation incorporates pre-booked commitments from D.backorder_records.source='seasonal_pre_book'
+  - **Substitution-aware forecast** — purchase_order_lines.substitution_item_id captures vendor substitutions (common when
+    a nursery's variety A is unavailable but variety B fits the slot); future forecasts learn from substitution patterns
+  - **Damage / dead-on-arrival tracking** — vendor_performance_records.damage_returns_count tracks live-plant DOA rates,
+    a vendor-quality signal disproportionately important to garden centers
