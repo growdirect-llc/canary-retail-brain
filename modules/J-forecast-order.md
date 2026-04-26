@@ -101,6 +101,20 @@ J exposes MCP tool families for planner and buyer workflows:
 - **v2.1** — Seasonal demand modeling (detect and forecast seasonal patterns). Lead-time variance modeling (supplier consistency tracking).
 - **v3** — Integration with P (Pricing & Promotion) to account for markdown-driven demand shifts. Integration with S (Space, Range, Display) for assortment-eligibility gating (item cannot be ordered for a location where it is not authorized to sell). Integration with W (Work Execution) for exception handling (e.g., "demand forecast is stale because sales data is late").
 
+## Lawn-and-garden specifics
+
+J is disproportionately load-bearing for L&G chains relative to other retail verticals. Three reasons:
+
+1. **Five-month plant-supply lead time.** Live-plant nurseries set the upcoming season's variety and quantity in Q4, propagate cuttings or seedlings through Q1, and ship live stock starting in Q2. The retailer who didn't commit by January doesn't get the inventory in April. J's forecast horizon must reach at least 26 weeks for live-plant categories — much longer than the 13-week default for hard goods. Manifest field `vendors.lead_time_days` defaults to ~120 days for `vendor_type=live_plant_nursery` to drive this correctly.
+2. **Regional drive-radius constraints.** Live perennials don't survive 3-day cross-country shipping. Vendors are graded by `drive_radius_miles` from the merchant's distribution point, and J's recommender excludes out-of-radius vendors for live-plant categories. The buyer's working set of vendors is therefore much smaller than for hard-goods retail, which makes vendor performance tracking proportionally more important.
+3. **Seasonal pre-book carry-forward.** Garden centers pre-book hot-selling SKUs (e.g., specific tomato cultivars, region-specific perennials) months in advance via `D.backorder_records` with `source='seasonal_pre_book'`. J's recommendation engine reads those committed quantities and excludes them from the open-headroom calculation. This is a different shape from generic SMB retail where pre-booking is rare.
+
+J's manifest also captures **substitution-aware forecasting** (`purchase_order_lines.substitution_item_id` — vendor sent a different cultivar; future demand model learns the substitution pattern) and **damage-on-arrival rate tracking** (`vendor_performance_records.damage_returns_count` — a live-plant-specific quality signal). Both are unusual outside the vertical and central within it. See `Canary-Retail-Brain/case-studies/lawn-and-garden-catz-phase1-diagnostic.md` §3.3 for the as-is buyer pain points pre-Canary (typically: spreadsheet-driven seasonal commits, no formal vendor scorecard, overstock at Sep clearance because forecasts didn't account for soft seasons).
+
+## Counterpoint upstream coverage
+
+Per the [[../../docs/sdds/canary/ncr-counterpoint-retail-spine-integration|NCR Counterpoint Retail Spine Integration SDD]] §6.9, Counterpoint exposes a **partial** J surface: Vendor master is reachable, and Document with `DOC_TYP=PO` carries the PO header + lines for ingest. The `ReplenishmentOrder` endpoint family is documented but availability is flagged as pending verification — the live Counterpoint REST scan is incomplete on that path. Until verified, J's Counterpoint adapter populates `vendors` and `purchase_orders` from the verified surface, and the demand-forecast + replenishment-recommendation logic stays Canary-native (no upstream replenishment engine to delegate to). If Counterpoint's replenishment engine turns out to be REST-exposed at the merchant we cross-reference but don't replace — Canary's ML-driven model is the differentiator and should not be supplanted by a vendor-internal heuristic engine.
+
 ## Open questions
 
 1. **Demand-forecast scope.** Should J forecast at SKU level, at SKU+location level, or both? Current assumption: both, with location-level overrides available to account for store-level demand differences.
