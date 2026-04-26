@@ -2,12 +2,653 @@ prefix: P
 name: pricing-promotion
 version: v3
 status: design
-purpose: "Promotion engine, markdown management, pricing-elasticity tracking, and price-change events that revalue ledger."
+purpose: "Multi-tier base pricing, time-bounded promotions, markdown management, and price-change events that revalue ledger."
 
 ledger_relationship:
   role: publisher
   verbs: [price_change, markdown]
   impact: "P is PUBLISHER of price-change and markdown events to stock ledger. Co-owner of markdown governance with C and F."
+
+# CRDM-aligned entities following Mini-5 shape.
+# Decision notes:
+# - `prices` and `tier_prices` are Things (catalog-attribute extensions —
+#   per-item base price, per-tier override).
+# - `pricing_tiers`, `promotions`, `promotion_rules` are Workflows —
+#   stateful lifecycle (draft → active → expired → archived) plus
+#   trigger-condition state.
+# - `markdown_records` and `price_change_log` are Events — append-only
+#   audit-trail entries; perishables drive heavy markdown volume in L&G.
+# - SDD §6.11 noted Counterpoint has NO Pricing/Promotion endpoint family;
+#   pricing is derived from Item base + CustomerControl tier flags. P
+#   models that derived shape natively, with Counterpoint adapter
+#   populating prices + tier_prices via item ingest.
+entities:
+  - name: prices
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: base_price_cents
+        type: BIGINT
+        nullable: false
+        description: "Per-unit retail price in cents (item.unit_of_measure-aware)"
+      - name: cost_basis_cents
+        type: BIGINT
+        nullable: true
+        description: "Reference cost (joined from C-owned products.cost_basis_cents at price-set time); null when unavailable"
+      - name: margin_bps
+        type: INTEGER
+        nullable: true
+        description: "Computed: (base_price_cents - cost_basis_cents) / base_price_cents in basis points; null when cost_basis_cents null"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Null while current; non-null when superseded"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_prices_item_current
+        columns: [item_id, effective_end]
+        unique: false
+      - name: idx_prices_merchant_effective
+        columns: [merchant_id, effective_start]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id) (S-owned)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [base_price_cents]
+        detail: "base_price_cents >= 0"
+        enforcement: "database-constraint"
+
+  - name: pricing_tiers
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Tier identifier — retail | landscaper | commercial | wholesale (matches R.customers.customer_tier)"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: default_discount_bps
+        type: INTEGER
+        nullable: false
+        default: "0"
+        description: "Default off-base-price discount in basis points (e.g., 1500 = 15% off retail). Per-item overrides live in tier_prices."
+      - name: volume_break_quantity
+        type: INTEGER
+        nullable: true
+        description: "L&G-critical: at this quantity, additional volume_break_discount_bps applies on top of default_discount_bps (e.g., landscaper tier hits 10+ units → extra 5%)"
+      - name: volume_break_discount_bps
+        type: INTEGER
+        nullable: true
+        description: "Additional bps off base when volume_break_quantity hit"
+      - name: requires_approval
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+        description: "Tier requires manager approval at point-of-sale (e.g., wholesale tier requires sign-off)"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_pricing_tiers_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+    write_pattern: mutable
+    integrity_constraints:
+      - type: check
+        columns: [code]
+        detail: "code IN ('retail','landscaper','commercial','wholesale')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','inactive','retired')"
+        enforcement: "database-constraint"
+
+  - name: tier_prices
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: pricing_tier_id
+        type: UUID
+        nullable: false
+      - name: tier_price_cents
+        type: BIGINT
+        nullable: false
+        description: "Absolute per-tier price (overrides default_discount_bps when set)"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_tier_prices_item_tier_current
+        columns: [item_id, pricing_tier_id, effective_end]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id) (S-owned)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [pricing_tier_id]
+        detail: "FK to pricing_tiers(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [tier_price_cents]
+        detail: "tier_price_cents >= 0"
+        enforcement: "database-constraint"
+
+  - name: promotions
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing promotion code (e.g., 'SPRING-OPEN-2026', 'END-SEASON-PERENNIALS')"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: promotion_type
+        type: TEXT
+        nullable: false
+        description: "scheduled | flash | seasonal | end_of_season_markdown | clearance | tier_specific"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'draft'"
+        description: "draft | scheduled | active | paused | expired | archived"
+      - name: scope_store_ids
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Empty array = all stores; non-empty = restricted to listed store_ids"
+      - name: scope_tier_codes
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Empty = all tiers; non-empty = restricted to retail | landscaper | commercial | wholesale"
+      - name: starts_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: ends_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: stack_with_tier
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+        description: "When true, promotion discount applies on top of tier price; when false, customer gets the better of the two"
+      - name: created_by
+        type: UUID
+        nullable: false
+        description: "FK to app.users(id) — buyer / merchandiser who created the promo"
+      - name: approved_by
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id) — required for high-discount promos per merchant policy"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_promotions_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_promotions_active_window
+        columns: [merchant_id, status, starts_at, ends_at]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: check
+        columns: [promotion_type]
+        detail: "promotion_type IN ('scheduled','flash','seasonal','end_of_season_markdown','clearance','tier_specific')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','scheduled','active','paused','expired','archived')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [starts_at, ends_at]
+        detail: "ends_at > starts_at"
+        enforcement: "database-constraint"
+
+  - name: promotion_rules
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: promotion_id
+        type: UUID
+        nullable: false
+      - name: rule_type
+        type: TEXT
+        nullable: false
+        description: "percent_off | dollars_off | bogo | n_for_price | bulk_break | mix_and_match_group"
+      - name: scope_item_ids
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Empty = all items in the promo's category scope; non-empty = restricted item_ids"
+      - name: scope_category_ids
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Restrict by category hierarchy (joined from S.item_categories)"
+      - name: mix_and_match_group_id
+        type: UUID
+        nullable: true
+        description: "FK to S.mix_and_match_groups(id) when rule_type=mix_and_match_group; cross-link to catalog group entity"
+      - name: trigger_quantity
+        type: INTEGER
+        nullable: true
+      - name: discount_bps
+        type: INTEGER
+        nullable: true
+        description: "When rule_type=percent_off"
+      - name: discount_amount_cents
+        type: BIGINT
+        nullable: true
+        description: "When rule_type=dollars_off"
+      - name: bundled_price_cents
+        type: BIGINT
+        nullable: true
+        description: "When rule_type=n_for_price"
+      - name: priority
+        type: INTEGER
+        nullable: false
+        default: "100"
+        description: "Lower = higher priority for stacking-resolution conflicts"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_promotion_rules_promotion
+        columns: [promotion_id, priority]
+        unique: false
+      - name: idx_promotion_rules_mix_and_match
+        columns: [mix_and_match_group_id]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [promotion_id]
+        detail: "FK to promotions(id); cascades on promotion archive"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [rule_type]
+        detail: "rule_type IN ('percent_off','dollars_off','bogo','n_for_price','bulk_break','mix_and_match_group')"
+        enforcement: "database-constraint"
+
+  - name: markdown_records
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: previous_price_cents
+        type: BIGINT
+        nullable: false
+      - name: new_price_cents
+        type: BIGINT
+        nullable: false
+      - name: discount_bps
+        type: INTEGER
+        nullable: false
+        description: "Computed: (previous - new) / previous in basis points"
+      - name: markdown_reason
+        type: TEXT
+        nullable: false
+        description: "perishable_aging | end_of_season | overstock | competitive_match | shrink_recovery | clearance | manager_discretion"
+      - name: posted_by
+        type: UUID
+        nullable: false
+        description: "FK to app.users(id) — buyer / merchandiser / store manager who posted"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: linked_promotion_id
+        type: UUID
+        nullable: true
+        description: "FK to promotions(id) when markdown is part of a structured promotion (e.g., end_of_season_markdown campaign)"
+      - name: gl_revaluation_event_id
+        type: UUID
+        nullable: true
+        description: "FK to F's cogs_movements(id) when markdown triggered a ledger revaluation"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_markdown_records_item_posted
+        columns: [item_id, posted_at]
+        unique: false
+      - name: idx_markdown_records_store_period
+        columns: [merchant_id, store_id, posted_at]
+        unique: false
+      - name: idx_markdown_records_reason
+        columns: [merchant_id, markdown_reason, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id) (S-owned)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [markdown_reason]
+        detail: "markdown_reason IN ('perishable_aging','end_of_season','overstock','competitive_match','shrink_recovery','clearance','manager_discretion')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [previous_price_cents, new_price_cents, discount_bps]
+        detail: "Markdown events are immutable post-insert; corrections via compensating insert (negative discount linked to original)"
+        enforcement: "database-trigger"
+
+  - name: price_change_log
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: item_id
+        type: UUID
+        nullable: false
+      - name: pricing_tier_id
+        type: UUID
+        nullable: true
+        description: "Null for base-price changes; set for tier-price changes"
+      - name: previous_cents
+        type: BIGINT
+        nullable: false
+      - name: new_cents
+        type: BIGINT
+        nullable: false
+      - name: change_type
+        type: TEXT
+        nullable: false
+        description: "base_price | tier_price | promotion_apply | promotion_revert | markdown | manual_correction"
+      - name: source_record_type
+        type: TEXT
+        nullable: true
+        description: "Which entity owns the underlying change: prices | tier_prices | promotions | markdown_records | manual"
+      - name: source_record_id
+        type: UUID
+        nullable: true
+      - name: posted_by
+        type: UUID
+        nullable: true
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_price_change_log_item_posted
+        columns: [item_id, posted_at]
+        unique: false
+      - name: idx_price_change_log_change_type
+        columns: [merchant_id, change_type, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [item_id]
+        detail: "FK to items(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [change_type]
+        detail: "change_type IN ('base_price','tier_price','promotion_apply','promotion_revert','markdown','manual_correction')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [previous_cents, new_cents]
+        detail: "Price changes are immutable post-insert; audit trail integrity"
+        enforcement: "database-trigger"
+
+mcp_tools:
+  - name: get_active_promotions
+    signature: "get_active_promotions(merchant_id, at?, store_id?, tier_code?) -> [Promotion]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: at
+        type: Timestamp
+        required: false
+        description: "Defaults to current time"
+      - name: store_id
+        type: UUID
+        required: false
+      - name: tier_code
+        type: String
+        required: false
+        description: "Optional filter: retail | landscaper | commercial | wholesale"
+    returns:
+      - name: promotions
+        type: Array[Promotion]
+        description: "Active promotions matching scope, with their promotion_rules attached"
+    idempotency: idempotent
+
+  - name: get_pricing_tier
+    signature: "get_pricing_tier(merchant_id, tier_code) -> PricingTier"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: tier_code
+        type: String
+        required: true
+    returns:
+      - name: PricingTier
+        type: Object
+        description: "Tier definition with default_discount_bps + volume_break_quantity + volume_break_discount_bps + requires_approval"
+    idempotency: idempotent
+
+  - name: get_price
+    signature: "get_price(item_id, customer_id?, store_id?, quantity?, at?) -> ResolvedPrice"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+      - name: customer_id
+        type: UUID
+        required: false
+        description: "When provided, P joins R to resolve customer_tier and applies tier pricing"
+      - name: store_id
+        type: UUID
+        required: false
+      - name: quantity
+        type: Integer
+        required: false
+        description: "When provided, P applies volume_break_discount_bps if quantity meets the tier's threshold"
+      - name: at
+        type: Timestamp
+        required: false
+    returns:
+      - name: ResolvedPrice
+        type: Object
+        description: "Final price + breakdown: base_cents, tier_override_cents, applied_promotions[], applied_volume_break, final_cents. The breakdown explains how the price was computed for receipt + audit."
+    idempotency: idempotent
+    note: "Cross-module: joins R for customer_tier, S for items.unit_of_measure + mix_and_match_groups, this module's prices/tier_prices/promotions/promotion_rules. The single tool merchants and Owl call to answer 'what does this customer pay for this item right now?'"
+
+  - name: get_markdown_history
+    signature: "get_markdown_history(item_id, store_id?, date_range?) -> [MarkdownRecord]"
+    params:
+      - name: item_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+      - name: date_range
+        type: DateRange
+        required: false
+    returns:
+      - name: markdowns
+        type: Array[MarkdownRecord]
+        description: "Markdown events for the item, paginated, newest first; includes reason + posted_by + linked promotion + GL revaluation link"
+    idempotency: idempotent
+
+  - name: get_promotion_performance
+    signature: "get_promotion_performance(promotion_id) -> PromotionPerformance"
+    params:
+      - name: promotion_id
+        type: UUID
+        required: true
+    returns:
+      - name: PromotionPerformance
+        type: Object
+        description: "Aggregate over the promotion window: incremental_units_sold, incremental_revenue_cents, attach_rate, margin_impact_cents (joined from T transactions in scope of the promotion's rules)"
+    idempotency: idempotent
+    rate_limit: "60 calls/minute"
+    note: "Cross-module read joining T's transactions on promotion_id linkage; expensive — rate-limited."
+
+integrations:
+  upstream:
+    - module: S
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "P joins S for items.unit_of_measure (price unit awareness) and mix_and_match_groups (cross-link from promotion_rules.mix_and_match_group_id)"
+    - module: R
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "P joins R for customers.customer_tier resolution at price computation time"
+    - module: C
+      relationship: "I_read_state_from"
+      verbs: [cost_update]
+      detail: "P reads C's cost_basis updates to recompute margin_bps on prices when supplier landed cost shifts"
+  downstream:
+    - module: T
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "T calls get_price at parse time to attribute the price applied per transaction line item"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: [markdown]
+      detail: "F's GL posting consumes markdown_records — markdown reduces ending inventory value at cost-method-aware revaluation"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q consumes price_change_log + markdown_records for price-manipulation fraud detection (e.g., manager discretion markdowns clustering on specific employee shifts)"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to any authenticated tenant role. Write tools split: base price + tier price changes require buyer / merchandiser; markdown posting requires manager (per merchant config — some authorize cashier with manager override); high-discount promo activation requires owner or designated approver."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories: []
+    retention_days: 2555
+    encryption: false
+    detail: "P holds pricing metadata only — no PII. Customer-tier-resolved prices via get_price never include customer identifying data in the response."
 
 implementation_route:
   primary: integrated-hybrid
@@ -17,7 +658,28 @@ implementation_route:
   alternatives_considered:
     - "Legacy-native pricing engine — rejected: merchants control pricing strategy; Canary is signal layer only"
   adr_reference: null
+  notes: |
+    Counterpoint specifically: per SDD §6.11, Counterpoint's REST surface has NO Pricing or
+    Promotion endpoint family. Pricing comes through the items adapter (Item base price
+    field) and customer tier flag (CustomerControl). P's manifest is therefore the
+    Canary-native shape; the Counterpoint adapter populates `prices` and `tier_prices`
+    via item ingest, and `promotions` are Canary-authored only (Counterpoint UI manages
+    its own promotion config separately, not exposed to integration).
 
 status_notes: |
-  v3 design. Promotion engine (bundles, thresholds, conditional offers), markdown management, and elasticity tracking are in scope.
-  Multi-channel price reconciliation deferred to implementation phase. Predictive markdown timing (ML) deferred to v4.
+  v3 design. Multi-tier base pricing (retail / landscaper / commercial / wholesale), volume-break composition,
+  time-bounded promotions with rule taxonomy (percent_off / dollars_off / bogo / n_for_price / bulk_break /
+  mix_and_match_group), markdown management with reason taxonomy, and full price-change audit log in scope.
+  Predictive markdown timing (ML-driven seasonal cadence) deferred to v4.
+  Multi-channel price reconciliation (online vs in-store discrepancy alerts) deferred to v4.
+
+  L&G specifics shipped in this manifest:
+  - 4-tier pricing model (retail / landscaper / commercial / wholesale) with volume_break_quantity for
+    landscaper-tier bulk-buying patterns (10+ flats → extra 5% off)
+  - markdown_reason taxonomy includes 'perishable_aging' (live-plant shrink recovery) and
+    'end_of_season' (late-Sep / Oct mass markdown of summer perennials)
+  - mix_and_match cross-link via promotion_rules.mix_and_match_group_id → S.mix_and_match_groups,
+    enabling "any 10 from group X for $25" patterns to live in P promotions while group membership
+    lives in S catalog
+  - stack_with_tier flag on promotions resolves the L&G-typical question of "does the landscaper
+    discount apply on top of an end-of-season markdown, or does the customer get the better of the two?"
