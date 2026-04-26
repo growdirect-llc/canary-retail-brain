@@ -6,18 +6,628 @@ purpose: "Scheduling, time tracking, payroll export touchpoints, and labor produ
 
 ledger_relationship:
   role: publisher
-  verbs: []
-  impact: "L is PUBLISHER of time-entry events (clock in/out, breaks, absences) that feed payroll export. Reads T's transactions for productivity calculation."
+  verbs: [labor_cost]
+  impact: "L is PUBLISHER of time-entry events (clock in/out, breaks, absences) and labor_cost_movements to the perpetual ledger. Reads T's transactions for productivity calculation. F subscribes to labor_cost_movements for COGS-via-labor allocation."
+
+# CANARY-NATIVE MODULE — option (d) per Counterpoint SDD §6.12.
+# Counterpoint's REST API has zero workforce coverage; Square's workforce
+# surface is partial. L's source-of-truth is therefore Canary-native:
+#   - For Square merchants: Square Team API sync (employee profiles only)
+#     + Canary-native clocking UI for timecards/breaks/absences.
+#   - For Counterpoint merchants: full Canary-native admission flow
+#     (no upstream POS data exists for L), or partner-provided timeclock
+#     import (Homebase, Deputy, When-I-Work, ADP API).
+#
+# This is the option-d "Canary owns this surface natively rather than
+# waiting on POS-vendor integration" pattern. The architectural seam is
+# in `employees.source` — values: 'square_team_api' | 'canary_native'
+# | 'partner_import_homebase' | 'partner_import_deputy' | etc.
+entities:
+  - name: employees
+    schema: app
+    crdm_category: People
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: source
+        type: TEXT
+        nullable: false
+        description: "Origin of employee record: square_team_api | canary_native | partner_import_homebase | partner_import_deputy | partner_import_adp | partner_import_paychex | partner_import_gusto"
+      - name: external_id
+        type: TEXT
+        nullable: true
+        description: "Source-system employee ID when source != canary_native"
+      - name: display_name
+        type: TEXT
+        nullable: false
+      - name: email
+        type: TEXT
+        nullable: true
+        description: "PII — encrypted at rest; used for clock-in identity verification"
+      - name: phone
+        type: TEXT
+        nullable: true
+        description: "PII — encrypted at rest"
+      - name: role_code
+        type: TEXT
+        nullable: false
+        description: "Merchant-defined role (cashier, manager, gardener, designer, etc.)"
+      - name: hire_date
+        type: DATE
+        nullable: true
+      - name: termination_date
+        type: DATE
+        nullable: true
+      - name: is_seasonal
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+        description: "L&G specific: garden centers have peak Apr-Jun seasonal hires; flag drives separate scheduling + analytics treatment"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | terminated | suspended"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_employees_merchant_status
+        columns: [merchant_id, status, is_seasonal]
+        unique: false
+      - name: idx_employees_source_external
+        columns: [merchant_id, source, external_id]
+        unique: true
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: unique
+        columns: [merchant_id, source, external_id]
+        detail: "Per-merchant per-source idempotent ingest; partial unique allowing null external_id for canary_native"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [source]
+        detail: "source IN ('square_team_api','canary_native','partner_import_homebase','partner_import_deputy','partner_import_adp','partner_import_paychex','partner_import_gusto')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','inactive','terminated','suspended')"
+        enforcement: "database-constraint"
+
+  - name: timecards
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: employee_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: clock_in_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: clock_out_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Null while shift is open"
+      - name: total_minutes
+        type: INTEGER
+        nullable: true
+        description: "Computed at clock-out time; null while open"
+      - name: clock_in_method
+        type: TEXT
+        nullable: false
+        description: "canary_ui | partner_punch | manager_correction | system_import"
+      - name: device_id
+        type: UUID
+        nullable: true
+        description: "FK to N's devices(id) when method is canary_ui (which terminal clocked the punch)"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_timecards_employee_clock_in
+        columns: [employee_id, clock_in_at]
+        unique: false
+      - name: idx_timecards_store_open
+        columns: [store_id, clock_out_at]
+        unique: false
+        description: "Indexes open shifts (clock_out_at IS NULL) for fast 'who's currently working' queries"
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [employee_id]
+        detail: "FK to employees(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [clock_in_method]
+        detail: "clock_in_method IN ('canary_ui','partner_punch','manager_correction','system_import')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [clock_in_at, clock_out_at, total_minutes]
+        detail: "Once clock_out_at set, the row is immutable. Corrections via compensating insert (manager_correction method, linked to original)."
+        enforcement: "database-trigger"
+
+  - name: breaks
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: timecard_id
+        type: UUID
+        nullable: false
+      - name: break_type
+        type: TEXT
+        nullable: false
+        description: "meal | rest | personal"
+      - name: started_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: ended_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: total_minutes
+        type: INTEGER
+        nullable: true
+      - name: is_paid
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_breaks_timecard
+        columns: [timecard_id, started_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [timecard_id]
+        detail: "FK to timecards(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [break_type]
+        detail: "break_type IN ('meal','rest','personal')"
+        enforcement: "database-constraint"
+
+  - name: absences
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: employee_id
+        type: UUID
+        nullable: false
+      - name: absence_type
+        type: TEXT
+        nullable: false
+        description: "pto | sick | bereavement | jury_duty | unpaid | unscheduled_no_show"
+      - name: start_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: end_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: total_hours
+        type: DECIMAL(8, 2)
+        nullable: false
+      - name: is_paid
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+      - name: approved_by
+        type: UUID
+        nullable: true
+        description: "FK to employees(id) when manager-approved; null for unscheduled_no_show"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_absences_employee_period
+        columns: [employee_id, start_at, end_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [employee_id]
+        detail: "FK to employees(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [absence_type]
+        detail: "absence_type IN ('pto','sick','bereavement','jury_duty','unpaid','unscheduled_no_show')"
+        enforcement: "database-constraint"
+
+  - name: schedules
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: employee_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: scheduled_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: scheduled_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: scheduled_role_code
+        type: TEXT
+        nullable: false
+        description: "Role for this specific shift; may differ from employees.role_code (e.g., cross-trained employee covering)"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'planned'"
+        description: "planned | published | swapped | dropped | covered | completed | no_show"
+      - name: actual_timecard_id
+        type: UUID
+        nullable: true
+        description: "FK to timecards(id) once shift starts; null while planned"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_schedules_employee_period
+        columns: [employee_id, scheduled_start]
+        unique: false
+      - name: idx_schedules_store_period
+        columns: [store_id, scheduled_start, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [employee_id]
+        detail: "FK to employees(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('planned','published','swapped','dropped','covered','completed','no_show')"
+        enforcement: "database-constraint"
+
+  - name: labor_cost_movements
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: employee_id
+        type: UUID
+        nullable: false
+      - name: timecard_id
+        type: UUID
+        nullable: true
+        description: "FK to timecards(id) when movement is timecard-driven; null for absence-driven entries"
+      - name: absence_id
+        type: UUID
+        nullable: true
+        description: "FK to absences(id) when movement is paid-absence (PTO/sick); null for timecard-driven entries"
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: minutes
+        type: INTEGER
+        nullable: false
+      - name: hourly_rate_cents
+        type: INTEGER
+        nullable: false
+        description: "Rate at time of work; signed (positive for paid hours, negative for corrections)"
+      - name: cost_cents
+        type: BIGINT
+        nullable: false
+        description: "Computed: minutes/60 * hourly_rate_cents; allocated to F's GL via labor-cost gl_postings"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_labor_cost_movements_period
+        columns: [merchant_id, posted_at]
+        unique: false
+      - name: idx_labor_cost_movements_employee
+        columns: [employee_id, posted_at]
+        unique: false
+      - name: idx_labor_cost_movements_timecard
+        columns: [timecard_id]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [employee_id]
+        detail: "FK to employees(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [minutes, hourly_rate_cents]
+        detail: "Exactly one of timecard_id or absence_id is non-null (enforced via partial check constraint)"
+        enforcement: "database-constraint"
+
+  - name: manager_hierarchies
+    schema: app
+    crdm_category: People
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: employee_id
+        type: UUID
+        nullable: false
+      - name: manager_id
+        type: UUID
+        nullable: true
+        description: "FK to employees(id); null indicates top of hierarchy (owner / GM)"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+        description: "Null while current; non-null when reports-to relationship rotates"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_manager_hierarchies_employee_current
+        columns: [employee_id, effective_end]
+        unique: false
+      - name: idx_manager_hierarchies_manager
+        columns: [manager_id, effective_end]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [employee_id]
+        detail: "FK to employees(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [manager_id]
+        detail: "FK to employees(id), nullable for top of hierarchy"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [employee_id, effective_start]
+        detail: "At most one manager_hierarchies row per employee_id with effective_end IS NULL (enforced via partial unique index in implementation)"
+        enforcement: "application"
+
+mcp_tools:
+  - name: get_employees
+    signature: "get_employees(merchant_id, store_id?, active?, is_seasonal?) -> [Employee]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+      - name: active
+        type: Boolean
+        required: false
+      - name: is_seasonal
+        type: Boolean
+        required: false
+        description: "L&G filter: scope to seasonal-only or non-seasonal-only"
+    returns:
+      - name: employees
+        type: Array[Employee]
+        description: "Paginated, max 500 per call. Includes role_code, status, hire_date."
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_employee
+    signature: "get_employee(employee_id) -> Employee"
+    params:
+      - name: employee_id
+        type: UUID
+        required: true
+    returns:
+      - name: Employee
+        type: Object
+        description: "Full employee record + current manager (joined from manager_hierarchies)"
+    idempotency: idempotent
+
+  - name: get_timeclock
+    signature: "get_timeclock(employee_id, date_range?) -> [Timecard]"
+    params:
+      - name: employee_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: false
+    returns:
+      - name: timecards
+        type: Array[Timecard]
+        description: "Paginated timecards with break + absence sub-rows joined; newest first"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_labor_cost
+    signature: "get_labor_cost(merchant_id, date_range, store_id?) -> LaborCostSummary"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+    returns:
+      - name: LaborCostSummary
+        type: Object
+        description: "Aggregate by store + role: total_hours, total_cost_cents, headcount, scheduled-vs-actual variance"
+    idempotency: idempotent
+    rate_limit: "60 calls/minute"
+
+  - name: get_schedule
+    signature: "get_schedule(store_id, date_range) -> [Schedule]"
+    params:
+      - name: store_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: true
+    returns:
+      - name: schedules
+        type: Array[Schedule]
+        description: "Planned/published shifts in the window with employee + role + actual timecard links when matured. Paginated 500 per call."
+    idempotency: idempotent-on-key
+
+  - name: get_ghost_employee_signals
+    signature: "get_ghost_employee_signals(merchant_id, date_range?) -> [GhostSignal]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: false
+    returns:
+      - name: signals
+        type: Array[GhostSignal]
+        description: "Heuristic signals for Q (loss prevention) ghost-employee detection: timecards-without-schedules, transactions-attributed-to-terminated-employees, identical-clock-patterns-across-employees, off-shift transactions"
+    idempotency: idempotent
+    note: "Q-module-driven detection input; not a routine MCP surface. Q's rule engine consumes this output."
+
+integrations:
+  upstream:
+    - module: T
+      relationship: "I_read_state_from"
+      verbs: [sale, return]
+      detail: "L joins T's transactions on employee_id for productivity calculation (sales-per-labor-hour, attach rate per employee)"
+    - module: N
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "L joins N's devices for clock-in attribution (which terminal punched the timecard)"
+  downstream:
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q consumes get_ghost_employee_signals + reads timecards/schedules for ghost-employee + buddy-punch + off-shift detection"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: [labor_cost]
+      detail: "F subscribes to labor_cost_movements for COGS-via-labor allocation; F's gl_postings handle merchant-side payroll-package handoff"
+    - module: S
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "S (v3 / Cycle 8+) reads schedules + timecards for foot-traffic-vs-staffing optimization (when IoT data joins)"
+    - module: external
+      relationship: "I_post_to"
+      verbs: []
+      detail: "L exports payroll-ready timecard summaries to merchant's payroll package (Gusto / Paychex / ADP / Homebase) via partner-specific export adapter — implementation per-partner; design-time hook only"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools (get_*) accessible to manager / owner role; write tools (clock-in correction, schedule edit, absence approval) require manager or owner role. Employees see only their own timecards via tenant + employee_id row-filter."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query. Cross-employee reads (e.g., manager viewing reports) gated by manager_hierarchies.manager_id resolution."
+  pii_handling:
+    categories:
+      - employee-display-name
+      - employee-email
+      - employee-phone
+      - employee-ssn-not-stored
+      - employee-bank-account-not-stored
+    retention_days: 2555
+    encryption: true
+    detail: "Employee email + phone encrypted at rest. SSN and bank account NEVER stored — those live in the merchant's payroll package (Gusto, Paychex, etc.); L holds only the partner-system ID linking to the external payroll record. Cards/IDs presented at clock-in are hashed before storage; raw PII visible only to manager-role users on the merchant's tenant."
 
 implementation_route:
   primary: integrated-hybrid
-  rationale: "Canary owns time-clock entries + scheduled-shift movements; merchant tool owns payroll calculation and tax filing (Gusto, Paychex, ADP)."
+  rationale: "Canary owns time-clock entries + scheduled-shift movements; merchant tool owns payroll calculation and tax filing (Gusto, Paychex, ADP). For Counterpoint merchants (zero workforce coverage in Counterpoint REST), Canary takes option (d) — full Canary-native admission of employees + timecards via Canary's clocking UI or partner import bridge."
   perpetual_owner: canary
   period_owner: merchant-system
   alternatives_considered:
     - "Legacy-native payroll engine — rejected: Canary has no payroll expertise; merchant tools are proven"
+    - "Defer L coverage entirely until POS-vendor integration ships — rejected per SDD §6.12: leaves a critical Q (ghost employee) detection gap that L&G + restaurant verticals consider table-stakes"
   adr_reference: null
+  notes: |
+    Option (d) — Canary-native — is the v3 design call. Drivers:
+    - Counterpoint REST has zero workforce surface (no Employee, Timeclock, Schedule, or Labor-cost endpoints)
+    - Square's Team API covers profiles only — clocking, breaks, absences are merchant-tool territory
+    - Q's ghost-employee detection requires authoritative timecard data; without L, Q's flagship detection rule cannot fire
+    - L&G + restaurant verticals already pay for separate workforce tools (Homebase, Deputy, When-I-Work) — Canary's option-d means our customers have one less tool to integrate
 
 status_notes: |
-  v3 design. Scheduling, time tracking, and payroll export are in scope. Labor productivity analytics and schedule-adherence
-  reporting deferred to implementation phase. Workforce planning and demand-driven scheduling (integration with J) deferred to v4.
+  v3 design (Canary-native option d). Scheduling, time tracking, payroll-ready exports, and labor-cost ledger publishing in scope.
+  Workforce planning + demand-driven scheduling (integration with J's forecasts) deferred to v4.
+  Foot-traffic-vs-staffing optimization (integration with S + IoT) deferred to v4 / Cycle 8+.
+  L&G specifics: is_seasonal flag on employees; manifest's Q-feed surface includes seasonal-staff anomaly detection (peak Apr-Jun staffing rotations are noisy enough that ghost-employee patterns must be tier-aware).
