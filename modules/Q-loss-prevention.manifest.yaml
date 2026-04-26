@@ -9,6 +9,628 @@ ledger_relationship:
   verbs: [sale, return]
   impact: "Q is a Workflow factory that derives Cases from T's transaction stream. Chirp evaluates 37 frozen detection rules; Fox manages case lifecycle."
 
+# CRDM-aligned entities following Mini-5 shape.
+# Decision notes:
+# - `detection_rules` and `merchant_rule_configs` are Workflows — rule
+#   lifecycle (draft → published → frozen → deprecated) and per-merchant
+#   enabled/threshold-overridden state are stateful processes operations
+#   monitors.
+# - `detections`, `alerts`, `alert_history` are Events — append-only
+#   ledger of detection findings, raised alerts, and status transitions.
+#   Conservation invariants: detections immutable post-insert; alert
+#   transitions linear (open → acknowledged → investigating → resolved
+#   | false_positive); alert_history is the linear append-only audit trail.
+# - `cases` are Workflows — long-running stateful investigations
+#   grouping multiple alerts; tied to Fox module's evidence locker
+#   (which carries its own write-once entities documented separately).
+entities:
+  - name: detection_rules
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: rule_code
+        type: TEXT
+        nullable: false
+        description: "Stable identifier (e.g., 'C-101', 'C-104', 'C-601') matching seed_rules.py + Brain rule catalog"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: category
+        type: TEXT
+        nullable: false
+        description: "refund | void | discount | gift_card | loyalty | cash_drawer | after_hours | velocity | tier_abuse | perishable_shrink"
+      - name: severity
+        type: TEXT
+        nullable: false
+        default: "'MEDIUM'"
+        description: "LOW | MEDIUM | HIGH | CRITICAL — drives notification path"
+      - name: description
+        type: TEXT
+        nullable: false
+        description: "Human-readable rule description suitable for merchant-facing UI"
+      - name: detection_logic
+        type: JSONB
+        nullable: false
+        description: "Rule evaluation spec — thresholds, time windows, dimensions. Frozen at version time; changes require new rule_code."
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'frozen'"
+        description: "draft | published | frozen | deprecated — once frozen, the detection_logic is immutable"
+      - name: version
+        type: INTEGER
+        nullable: false
+        default: "1"
+        description: "Rule version; increment requires creating a new row, not mutating in place once frozen"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_detection_rules_code_version
+        columns: [rule_code, version]
+        unique: true
+      - name: idx_detection_rules_category_status
+        columns: [category, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: unique
+        columns: [rule_code, version]
+        detail: "Per-rule-code per-version uniqueness; new rule logic creates new row"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [category]
+        detail: "category IN ('refund','void','discount','gift_card','loyalty','cash_drawer','after_hours','velocity','tier_abuse','perishable_shrink')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [severity]
+        detail: "severity IN ('LOW','MEDIUM','HIGH','CRITICAL')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','published','frozen','deprecated')"
+        enforcement: "database-constraint"
+
+  - name: merchant_rule_configs
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: rule_id
+        type: UUID
+        nullable: false
+      - name: enabled
+        type: BOOLEAN
+        nullable: false
+        default: "true"
+      - name: threshold_overrides
+        type: JSONB
+        nullable: false
+        default: "'{}'"
+        description: "Per-rule per-merchant threshold overrides on detection_logic params (e.g., {'refund_count_per_day': 5} when merchant tunes from default 3)"
+      - name: severity_override
+        type: TEXT
+        nullable: true
+        description: "Override the rule's default severity for this merchant; null = use rule default"
+      - name: notification_targets
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Per-merchant notification routing for this rule's alerts: SMS / email / Slack / dashboard-only"
+      - name: configured_by
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id) — who tuned the config"
+      - name: configured_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_merchant_rule_configs_merchant_rule
+        columns: [merchant_id, rule_id]
+        unique: true
+      - name: idx_merchant_rule_configs_enabled
+        columns: [merchant_id, enabled]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: fk
+        columns: [rule_id]
+        detail: "FK to detection_rules(id)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [merchant_id, rule_id]
+        detail: "One config per (merchant, rule); enforces single source of truth for merchant tuning"
+        enforcement: "database-constraint"
+
+  - name: detections
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: rule_id
+        type: UUID
+        nullable: false
+      - name: triggering_event_id
+        type: UUID
+        nullable: false
+        description: "FK to the upstream event that triggered detection (most often sales.transactions(id), but can be cash_drawer event or gift_card event etc.)"
+      - name: triggering_event_type
+        type: TEXT
+        nullable: false
+        description: "transaction | cash_drawer | gift_card | loyalty | timecard"
+      - name: store_id
+        type: UUID
+        nullable: true
+      - name: employee_id
+        type: UUID
+        nullable: true
+      - name: customer_id
+        type: UUID
+        nullable: true
+      - name: detection_payload
+        type: JSONB
+        nullable: false
+        description: "Rule-specific evidence: amounts, time deltas, comparison values, supporting links"
+      - name: severity
+        type: TEXT
+        nullable: false
+        description: "Effective severity at detection time (rule default + merchant override applied)"
+      - name: alert_id
+        type: UUID
+        nullable: true
+        description: "FK to alerts(id) once aggregated; null while pending aggregation"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_detections_rule_created
+        columns: [merchant_id, rule_id, created_at]
+        unique: false
+      - name: idx_detections_employee_created
+        columns: [employee_id, created_at]
+        unique: false
+      - name: idx_detections_triggering_event
+        columns: [triggering_event_id, triggering_event_type]
+        unique: false
+      - name: idx_detections_alert
+        columns: [alert_id]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [rule_id]
+        detail: "FK to detection_rules(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [triggering_event_type]
+        detail: "triggering_event_type IN ('transaction','cash_drawer','gift_card','loyalty','timecard')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [detection_payload, severity]
+        detail: "Detection rows are immutable post-insert; corrections via compensating insert linked to original"
+        enforcement: "database-trigger"
+
+  - name: alerts
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: rule_id
+        type: UUID
+        nullable: false
+      - name: detection_count
+        type: INTEGER
+        nullable: false
+        default: "1"
+        description: "How many detections aggregated into this alert"
+      - name: store_id
+        type: UUID
+        nullable: true
+      - name: employee_id
+        type: UUID
+        nullable: true
+      - name: customer_id
+        type: UUID
+        nullable: true
+      - name: severity
+        type: TEXT
+        nullable: false
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | acknowledged | investigating | resolved | false_positive"
+      - name: case_id
+        type: UUID
+        nullable: true
+        description: "FK to cases(id) when escalated"
+      - name: opened_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: closed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_alerts_merchant_status
+        columns: [merchant_id, status, severity, opened_at]
+        unique: false
+      - name: idx_alerts_employee
+        columns: [employee_id, status]
+        unique: false
+      - name: idx_alerts_case
+        columns: [case_id]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [rule_id]
+        detail: "FK to detection_rules(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('open','acknowledged','investigating','resolved','false_positive')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [severity, opened_at, rule_id]
+        detail: "Severity, opened_at, rule_id are immutable post-insert; status changes flow through alert_history"
+        enforcement: "database-trigger"
+
+  - name: alert_history
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: alert_id
+        type: UUID
+        nullable: false
+      - name: from_status
+        type: TEXT
+        nullable: true
+        description: "Null for the initial 'opened' transition"
+      - name: to_status
+        type: TEXT
+        nullable: false
+      - name: actor_id
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id); null for system transitions"
+      - name: note
+        type: TEXT
+        nullable: true
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_alert_history_alert_posted
+        columns: [alert_id, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [alert_id]
+        detail: "FK to alerts(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [to_status]
+        detail: "to_status IN ('open','acknowledged','investigating','resolved','false_positive')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [from_status, to_status, actor_id, posted_at]
+        detail: "Alert-history rows are immutable post-insert; the linear append-only ledger of alert state transitions"
+        enforcement: "database-trigger"
+
+  - name: cases
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: case_number
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing case identifier (e.g., 'CASE-2026-0042')"
+      - name: subject_employee_id
+        type: UUID
+        nullable: true
+      - name: subject_customer_id
+        type: UUID
+        nullable: true
+      - name: store_id
+        type: UUID
+        nullable: true
+      - name: severity
+        type: TEXT
+        nullable: false
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | investigating | escalated | resolved | closed_no_action"
+      - name: assigned_to
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id) — investigator owner"
+      - name: resolution_action
+        type: TEXT
+        nullable: true
+        description: "verbal_warning | written_warning | suspension | termination | ban | police_report | insurance_claim | no_action"
+      - name: resolution_note
+        type: TEXT
+        nullable: true
+      - name: opened_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: resolved_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_cases_merchant_case_number
+        columns: [merchant_id, case_number]
+        unique: true
+      - name: idx_cases_status_severity
+        columns: [merchant_id, status, severity]
+        unique: false
+      - name: idx_cases_subject_employee
+        columns: [subject_employee_id, status]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: unique
+        columns: [merchant_id, case_number]
+        detail: "Per-merchant case-number uniqueness"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('open','investigating','escalated','resolved','closed_no_action')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [resolution_action]
+        detail: "resolution_action IS NULL OR resolution_action IN ('verbal_warning','written_warning','suspension','termination','ban','police_report','insurance_claim','no_action')"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: query_detections
+    signature: "query_detections(merchant_id, rule_code?, date_range, store_id?, employee_id?) -> [Detection]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: rule_code
+        type: String
+        required: false
+        description: "Filter by specific rule (e.g., 'C-101'); omit for all rules"
+      - name: date_range
+        type: DateRange
+        required: true
+      - name: store_id
+        type: UUID
+        required: false
+      - name: employee_id
+        type: UUID
+        required: false
+    returns:
+      - name: detections
+        type: Array[Detection]
+        description: "Paginated, max 1000 per call, with rule_code + severity + triggering_event link"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_detection_detail
+    signature: "get_detection_detail(detection_id) -> Detection"
+    params:
+      - name: detection_id
+        type: UUID
+        required: true
+    returns:
+      - name: Detection
+        type: Object
+        description: "Full detection with rule definition, triggering event payload joined, related alerts/cases"
+    idempotency: idempotent
+
+  - name: list_active_rules
+    signature: "list_active_rules(merchant_id, category?) -> [RuleConfig]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: category
+        type: String
+        required: false
+        description: "Filter by rule category"
+    returns:
+      - name: rules
+        type: Array[RuleConfig]
+        description: "Active rules with merchant's effective config (default merged with merchant_rule_configs overrides)"
+    idempotency: idempotent
+
+  - name: get_alert
+    signature: "get_alert(alert_id) -> AlertWithHistory"
+    params:
+      - name: alert_id
+        type: UUID
+        required: true
+    returns:
+      - name: AlertWithHistory
+        type: Object
+        description: "Alert + full alert_history transitions + linked detections + linked case (when escalated)"
+    idempotency: idempotent
+
+  - name: get_open_cases
+    signature: "get_open_cases(merchant_id, severity?, assigned_to?) -> [Case]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: severity
+        type: String
+        required: false
+      - name: assigned_to
+        type: UUID
+        required: false
+    returns:
+      - name: cases
+        type: Array[Case]
+        description: "Open + investigating cases with subject + assignee + opened_at + linked alert count"
+    idempotency: idempotent
+    rate_limit: "200 calls/minute"
+
+  - name: merchant_rule_config
+    signature: "merchant_rule_config(merchant_id, rule_code, action, payload?) -> RuleConfig"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: rule_code
+        type: String
+        required: true
+      - name: action
+        type: String
+        required: true
+        description: "get | enable | disable | set_thresholds | set_notification_targets"
+      - name: payload
+        type: Object
+        required: false
+        description: "Required for set_* actions"
+    returns:
+      - name: RuleConfig
+        type: Object
+        description: "Effective config after the action"
+    idempotency: not-idempotent
+    note: "Write tool — requires manager / owner role. The single tool merchants use to tune Q for their store."
+
+integrations:
+  upstream:
+    - module: T
+      relationship: "publishes_to_me"
+      verbs: [sale, return]
+      detail: "Q's Chirp engine consumes T's transaction stream — the primary detection input. Refund / void / discount / after-hours / velocity rules all fire on T events."
+    - module: R
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q joins R for customer_tier-aware detection (landscaper-tier-discount-abuse rule, customer-history pattern detection)"
+    - module: L
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q reads L's timecards + schedules + get_ghost_employee_signals for ghost-employee + buddy-punch + off-shift detection. L is critical input for the workforce-fraud rule family."
+    - module: N
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q tags detections by store + station + device for blast-radius scoping"
+    - module: F
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q reads F's invoice_matches.variance_cents for supplier-fraud detection (consistent over-invoicing patterns)"
+    - module: P
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q reads P's price_change_log + markdown_records for price-manipulation fraud (manager-discretion markdowns clustering on specific employee shifts)"
+    - module: S
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q reads S's items.is_perishable + dead_count + mix_and_match_groups for perishable-shrink-anomaly + mix-and-match scan-skip detection"
+    - module: C
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q reads C's suppliers + supplier_agreements for supplier-side fraud detection (e.g., shrink rates per supplier)"
+  downstream:
+    - module: external
+      relationship: "I_post_to"
+      verbs: []
+      detail: "Q's alerts trigger SMS (Twilio) / email / Slack notifications per merchant_rule_configs.notification_targets. HIGH and CRITICAL severities trigger within 30 seconds; MEDIUM/LOW dashboard-only by default."
+    - module: Fox
+      relationship: "I_publish_to"
+      verbs: []
+      detail: "Q escalates clusters of related alerts into Fox cases. Fox owns the evidence locker (write-once, INSERT-only enforced at trigger layer per the Fox manifest, separate from this manifest's cases entity which carries the case workflow state)."
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools accessible to manager / owner roles (not employee role — this is sensitive data). Write tool merchant_rule_config requires owner or designated approver. Case resolution actions require manager or owner with documented note."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query. Cross-tenant alerts NEVER possible — the rule engine resolves all references through external_identities + tenant filter."
+  pii_handling:
+    categories:
+      - alert-subject-employee-id
+      - alert-subject-customer-id
+      - case-resolution-note-may-contain-pii
+    retention_days: 2555
+    encryption: true
+    detail: "Detections + alerts hold employee/customer UUIDs only — display name resolution happens at query time through R/L's PII broker. Case resolution_note may contain PII (e.g., 'Employee John Doe terminated for refund fraud') — encrypted at rest and gated by Fox's evidence-locker access controls when escalated to Fox cases."
+
 implementation_route:
   primary: integrated-hybrid
   rationale: "Canary owns detection (Chirp) + case management (Fox); merchant tool owns insurance claims, restitution tracking, HR actions."
@@ -19,6 +641,28 @@ implementation_route:
   adr_reference: null
 
 status_notes: |
-  v1 shipping as of 2026-04-24. Detection rule catalog frozen at 37 rules across 10 categories.
-  Fox case management with INSERT-only evidence chains enforced at trigger layer.
-  Advanced detection features (ML models, cross-merchant pattern detection) deferred to v2.
+  v1 shipping as of 2026-04-24. Detection rule catalog frozen at 37 rules across 10 categories per
+  Brain/wiki/canary-module-q-counterpoint-rule-catalog.md (refund, void, discount, gift_card, loyalty,
+  cash_drawer, after_hours, velocity, tier_abuse, perishable_shrink). Fox case management with INSERT-only
+  evidence chains enforced at PostgreSQL trigger layer. Advanced detection (ML models, cross-merchant
+  pattern detection) deferred to v2.
+
+  L&G-critical rule families (highlighted for Counterpoint deployment):
+  - **Perishable shrink anomaly** — detects shrink-rate spikes on items.is_perishable=true relative to
+    receipts; tier-aware to dampen peak-Apr-Jun seasonal noise (rule category: perishable_shrink)
+  - **Chemical-restricted-items audit** — Prop 65 / EPA compliance: pesticide / fertilizer SKUs sold
+    without age verification or transferred between locations without paperwork (rule category: discount,
+    cross-cuts with after_hours when off-shift sale)
+  - **Seasonal-staff first-30-day tender patterns** — new seasonal hires (employees.is_seasonal + hire_date
+    within 30 days) showing card-fingerprint repeat patterns or after-hours refunds (rule category:
+    velocity + after_hours)
+  - **Mix-and-match flat scan-skip** — when a transaction includes mix_and_match_groups membership but
+    line-item count is below trigger_quantity (member items scanned without the matching $25 group price)
+    (rule category: discount)
+  - **Landscaper-tier discount abuse** — retail-tier customer (R.customer_tier=retail) using a B2B-tier
+    customer_id at point-of-sale, or repeated customer_tier reassignments mid-transaction (rule category:
+    tier_abuse)
+
+  Q's rule engine is the substantive piece of Canary's flagship value proposition. Deepening the manifest
+  here makes the rule lifecycle, merchant-tuning surface, and detection-aggregation pipeline explicit to
+  agents that compose Q's behavior at runtime.
