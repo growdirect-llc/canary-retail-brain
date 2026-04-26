@@ -9,6 +9,459 @@ ledger_relationship:
   verbs: [cost_update, reclassification]
   impact: "C publishes cost-update events to stock ledger when supplier landed cost changes. Co-owner of OTB calculation with F and J."
 
+# CRDM-aligned entity declarations.
+# Decision: `departments` modeled as Places (hierarchical org structure where
+# things live and people work) rather than a Things hierarchy. Matches the
+# CRDM contract that "Places are hierarchical (a store has departments…)" and
+# avoids overloading Things with classification scaffolding.
+entities:
+  - name: suppliers
+    schema: app
+    crdm_category: People
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: external_supplier_code
+        type: TEXT
+        nullable: true
+        description: "Merchant-assigned supplier code (e.g., vendor number from prior ERP)"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: payment_terms
+        type: TEXT
+        nullable: true
+        description: "Net-30, 2/10 Net-30, etc."
+      - name: cost_variance_tolerance_bps
+        type: INTEGER
+        nullable: true
+        description: "Acceptable invoice-vs-PO variance in basis points before reIM flags"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | inactive | terminated"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        detail: "Foreign key to app.merchants(id); tenant isolation"
+        enforcement: "database-trigger"
+      - type: unique
+        columns: [merchant_id, external_supplier_code]
+        detail: "Per-merchant uniqueness of external supplier code (when set)"
+        enforcement: "database-constraint"
+
+  - name: departments
+    schema: app
+    crdm_category: Places
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: parent_department_id
+        type: UUID
+        nullable: true
+        description: "Self-referencing FK for hierarchy (division → department → class → subclass)"
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-facing department code"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: hierarchy_level
+        type: TEXT
+        nullable: false
+        description: "division | department | class | subclass"
+      - name: cost_method
+        type: TEXT
+        nullable: false
+        description: "RIM | COST_METHOD — drives valuation and OTB currency"
+      - name: buyer_id
+        type: UUID
+        nullable: true
+        description: "FK to app.users(id) — buyer/merchandiser owner of this department"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        detail: "Foreign key to app.merchants(id); tenant isolation"
+        enforcement: "database-trigger"
+      - type: fk
+        columns: [parent_department_id]
+        detail: "Self-referencing FK to departments(id); enforces tree shape"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [cost_method]
+        detail: "cost_method IN ('RIM', 'COST_METHOD')"
+        enforcement: "database-constraint"
+
+  - name: categories
+    schema: app
+    crdm_category: Things
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: department_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: fk
+        columns: [department_id]
+        detail: "Foreign key to departments(id)"
+        enforcement: "database-constraint"
+
+  - name: products
+    schema: app
+    crdm_category: Things
+    extends: "app.products"
+    description: "Extends the existing app.products table with C-owned merchandising attributes (cost method, supplier link, hierarchy linkage). Existing app.products columns are not redeclared here; only the C-specific extensions."
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        description: "Inherited from app.products"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+        description: "Inherited from app.products; tenant scoping"
+      - name: category_id
+        type: UUID
+        nullable: false
+        description: "C extension: FK to categories(id) for merchandise hierarchy"
+      - name: supplier_id
+        type: UUID
+        nullable: true
+        description: "C extension: FK to suppliers(id) for primary supplier"
+      - name: cost_method
+        type: TEXT
+        nullable: false
+        description: "C extension: RIM | COST_METHOD — inherited from department default but overridable per-SKU"
+      - name: cost_basis_cents
+        type: INTEGER
+        nullable: true
+        description: "C extension: current landed-cost basis in cents (FIFO/weighted-avg per cost_method)"
+      - name: cost_complement_bps
+        type: INTEGER
+        nullable: true
+        description: "C extension: cost-complement allocation in basis points for RIM departments"
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [category_id]
+        detail: "FK to categories(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [supplier_id]
+        detail: "FK to suppliers(id), nullable (some items have no primary supplier yet)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [cost_method]
+        detail: "cost_method IN ('RIM', 'COST_METHOD')"
+        enforcement: "database-constraint"
+
+  - name: supplier_agreements
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: supplier_id
+        type: UUID
+        nullable: false
+      - name: agreement_type
+        type: TEXT
+        nullable: false
+        description: "purchase | consignment | drop_ship | service"
+      - name: effective_start
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: effective_end
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: terms_doc_uri
+        type: TEXT
+        nullable: true
+        description: "Pointer to externally-stored contract document (S3 / CRM); never raw contents"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | superseded | terminated | draft"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: fk
+        columns: [supplier_id]
+        detail: "FK to suppliers(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [agreement_type]
+        detail: "agreement_type IN ('purchase', 'consignment', 'drop_ship', 'service')"
+        enforcement: "database-constraint"
+
+  - name: cost_updates
+    schema: sales
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: product_id
+        type: UUID
+        nullable: false
+      - name: supplier_id
+        type: UUID
+        nullable: true
+      - name: previous_cost_cents
+        type: INTEGER
+        nullable: false
+      - name: new_cost_cents
+        type: INTEGER
+        nullable: false
+      - name: variance_cents
+        type: INTEGER
+        nullable: false
+        description: "Computed: new_cost_cents - previous_cost_cents (signed)"
+      - name: reason_code
+        type: TEXT
+        nullable: false
+        description: "supplier_price_change | invoice_variance | tariff | duty | reclassification | manual_adjustment"
+      - name: source_event_id
+        type: UUID
+        nullable: true
+        description: "Link to the originating reIM/invoice/PO event when applicable"
+      - name: posted_by
+        type: UUID
+        nullable: false
+        description: "FK to app.users(id) — buyer/merchandiser who posted the update"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    write_pattern: insert-only
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: fk
+        columns: [product_id]
+        detail: "FK to products(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [reason_code]
+        detail: "reason_code IN ('supplier_price_change','invoice_variance','tariff','duty','reclassification','manual_adjustment')"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [previous_cost_cents, new_cost_cents, variance_cents]
+        detail: "Cost-update events are immutable post-insert; audit-trail integrity"
+        enforcement: "database-trigger"
+
+mcp_tools:
+  - name: get_supplier
+    signature: "get_supplier(supplier_id) -> Supplier"
+    params:
+      - name: supplier_id
+        type: UUID
+        required: true
+    returns:
+      - name: Supplier
+        type: Object
+        description: "Full supplier record including payment terms, status, variance tolerance"
+    idempotency: idempotent
+
+  - name: list_suppliers
+    signature: "list_suppliers(merchant_id, filters?) -> [Supplier]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: filters
+        type: Object
+        required: false
+        description: "Optional: status, name_contains, has_active_agreement"
+    returns:
+      - name: suppliers
+        type: Array[Supplier]
+        description: "Matching supplier records (paginated, max 500 per call)"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_department_hierarchy
+    signature: "get_department_hierarchy(merchant_id, root_department_id?) -> DepartmentTree"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: root_department_id
+        type: UUID
+        required: false
+        description: "Subtree root; if omitted, returns the full hierarchy"
+    returns:
+      - name: DepartmentTree
+        type: Object
+        description: "Nested department/class/subclass tree with cost_method per node"
+    idempotency: idempotent
+
+  - name: get_product_cost_history
+    signature: "get_product_cost_history(product_id, date_range?) -> [CostUpdateEvent]"
+    params:
+      - name: product_id
+        type: UUID
+        required: true
+      - name: date_range
+        type: DateRange
+        required: false
+    returns:
+      - name: events
+        type: Array[CostUpdateEvent]
+        description: "Cost-update events for the product, newest-first; includes reason_code, variance, posted_by"
+    idempotency: idempotent
+
+  - name: get_otb_headroom_for_department
+    signature: "get_otb_headroom_for_department(department_id, period?) -> OTBHeadroom"
+    params:
+      - name: department_id
+        type: UUID
+        required: true
+      - name: period
+        type: String
+        required: false
+        description: "Period identifier (e.g., 2026-W17, 2026-04). Defaults to current open period."
+    returns:
+      - name: OTBHeadroom
+        type: Object
+        description: "Available OTB in retail or cost dollars (per department cost_method); planned-EOH, planned-receipts, planned-markdowns, planned-sales, current-SOH breakdown; over/under flag"
+    idempotency: idempotent
+    rate_limit: "100 calls/minute"
+
+integrations:
+  upstream:
+    - module: T
+      relationship: "I_read_state_from"
+      verbs: [sale, return]
+      detail: "C reads T's transaction stream to track sales velocity per product for OTB planned-sales calculation"
+    - module: D
+      relationship: "I_read_state_from"
+      verbs: [receipt, transfer]
+      detail: "C reads D's receipt events to track on-hand-cost basis and detect invoice variance triggering cost-update events"
+    - module: F
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "C reads F-owned cost-method designation per department (RIM vs Cost Method) and GL-account mapping"
+  downstream:
+    - module: D
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "D queries C for item-master validation (product_id exists, has cost method) before posting receipt movements"
+    - module: F
+      relationship: "subscribes_to_me"
+      verbs: [cost_update]
+      detail: "F subscribes to C's cost_update events to post cost-variance entries to the GL"
+    - module: J
+      relationship: "reads_my_state"
+      verbs: []
+      detail: "J reads C's OTB headroom and item master to constrain replenishment recommendations; J calls get_otb_headroom_for_department before suggesting a PO"
+    - module: P
+      relationship: "subscribes_to_me"
+      verbs: [cost_update]
+      detail: "P (v3) reads C's item master and coordinates with cost-update events for markdown-driven cost revaluation"
+    - module: Q
+      relationship: "reads_my_state"
+      verbs: []
+      detail: "Q reads C's item master and supplier hierarchy for context in exception workflows (e.g., shrink-by-supplier rollups)"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read-only tools (get_*, list_*) accessible to any authenticated tenant role; write tools (cost-update post, OTB re-plan) require buyer or merchandiser role"
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query"
+  pii_handling:
+    categories:
+      - supplier-contact-name
+      - supplier-contact-email
+    retention_days: 2555
+    encryption: true
+    detail: "Supplier names and addresses stored as opaque text in C's schema; no email/phone fields curated by C. Resolution to contact detail happens at query time via external CRM integration. PII flag retained because supplier_agreements.terms_doc_uri may point at documents containing contact data — gate access to that field through a CRM-broker check rather than direct read."
+
 implementation_route:
   primary: integrated-hybrid
   rationale: "Canary owns SKU/supplier identity + cost-update events; merchant tool owns supplier contract management and long-term commercial planning."
