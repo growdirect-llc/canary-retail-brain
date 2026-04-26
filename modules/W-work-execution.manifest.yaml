@@ -1,24 +1,736 @@
 prefix: W
 name: work-execution
 version: v3
-status: design
-purpose: "Cross-domain exception detection and case management generalizing Q's Chirp+Fox pattern across entire retail spine."
+status: design-parked
+purpose: "Daily operating tasks, store-floor workflows, ops checklists, and cross-domain exception-signal subscription — generalized work-execution layer for the merchant's daily operating cadence."
 
 ledger_relationship:
-  role: reconciler
+  role: subscriber
   verbs: []
-  impact: "W is RECONCILER and CROSS-DOMAIN ANALYZER. Reads all spine modules' exception signals; publishes aggregated cases and escalations."
+  impact: "W subscribes to exception signals from all spine modules and routes them to per-task / per-checklist actionable work for store staff. Publishes task_completions back to Q + L for accountability + workforce-productivity tracking."
+
+# CANARY-NATIVE MODULE — option (d) per Counterpoint SDD §6.13.
+# Counterpoint's REST API has zero work-execution coverage (no task,
+# checklist, or workflow endpoints). W's source-of-truth is therefore
+# Canary-native: Canary's task UI on store-floor terminals + import
+# bridge for partner store-ops products (Beekeeper, YOOBIC, Foko Retail).
+#
+# **Status: parked-but-spec'd.** Phase 6+ shipping target. Spec lives now
+# even though Phase 3 doesn't ship implementation — design clarity at
+# manifest time prevents downstream module owners from inventing parallel
+# task-execution surfaces that would conflict with W when it arrives.
+#
+# Reframing note (deepening pass 2026-04-26): the previous thin manifest
+# framed W as "cross-domain exception detection generalizing Q's
+# Chirp+Fox." That conflicts with file name (work-execution) + module
+# narrative path + dispatch description + SDD §6.13. Work-execution is
+# canonical; cross-domain exception aggregation is one MCP surface
+# within W (subscribe_exception_signals tool below) but not the module's
+# primary purpose. Q remains the loss-prevention engine; W is the
+# operations-floor work surface that consumes signals from Q + the rest
+# of the spine and turns them into actionable tasks for store staff.
+#
+# CRDM-aligned entities following Mini-5 shape.
+# Decision notes:
+# - `tasks` and `task_templates` and `task_assignments` and `checklists`
+#   are Workflows — long-running stateful work definitions and assignments.
+# - `task_completions`, `checklist_runs`, and `exception_signals` are
+#   Events — append-only audit trails of what happened.
+entities:
+  - name: task_templates
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "Merchant-defined template identifier (e.g., 'PERISHABLE-ROTATION-DAILY')"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: category
+        type: TEXT
+        nullable: false
+        description: "perishable_rotation | irrigation_check | deadhead_grooming | pesticide_compliance | opening_checklist | closing_checklist | inventory_count | safety_audit | maintenance | training | custom"
+      - name: description
+        type: TEXT
+        nullable: true
+      - name: estimated_minutes
+        type: INTEGER
+        nullable: true
+      - name: required_role
+        type: TEXT
+        nullable: true
+        description: "Optional role restriction (cashier | gardener | manager | designer | any)"
+      - name: requires_photo_evidence
+        type: BOOLEAN
+        nullable: false
+        default: "false"
+        description: "Pesticide-compliance + safety-audit templates often require photo-evidence on completion"
+      - name: schedule_pattern
+        type: JSONB
+        nullable: true
+        description: "Recurrence: daily | weekly:[Mon,Wed,Fri] | monthly:1 | seasonal:Apr-Sep | one_time | event_triggered"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "draft | active | paused | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_task_templates_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_task_templates_category_status
+        columns: [merchant_id, category, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: fk
+        columns: [merchant_id]
+        enforcement: "database-trigger"
+        detail: "Tenant isolation"
+      - type: check
+        columns: [category]
+        detail: "category IN ('perishable_rotation','irrigation_check','deadhead_grooming','pesticide_compliance','opening_checklist','closing_checklist','inventory_count','safety_audit','maintenance','training','custom')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','active','paused','retired')"
+        enforcement: "database-constraint"
+
+  - name: tasks
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: task_template_id
+        type: UUID
+        nullable: true
+        description: "FK to task_templates(id); null for ad-hoc tasks not tied to a template"
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: title
+        type: TEXT
+        nullable: false
+      - name: description
+        type: TEXT
+        nullable: true
+      - name: priority
+        type: TEXT
+        nullable: false
+        default: "'normal'"
+        description: "low | normal | high | urgent"
+      - name: scheduled_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: due_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: source_signal_id
+        type: UUID
+        nullable: true
+        description: "FK to exception_signals(id) when task auto-generated from cross-domain signal"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'open'"
+        description: "open | assigned | in_progress | completed | overdue | cancelled | skipped"
+      - name: created_by
+        type: UUID
+        nullable: true
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_tasks_store_status_due
+        columns: [store_id, status, due_at]
+        unique: false
+      - name: idx_tasks_template_status
+        columns: [task_template_id, status]
+        unique: false
+      - name: idx_tasks_source_signal
+        columns: [source_signal_id]
+        unique: false
+    write_pattern: mutable
+    integrity_constraints:
+      - type: fk
+        columns: [task_template_id]
+        detail: "FK to task_templates(id), nullable for ad-hoc tasks"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [priority]
+        detail: "priority IN ('low','normal','high','urgent')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('open','assigned','in_progress','completed','overdue','cancelled','skipped')"
+        enforcement: "database-constraint"
+
+  - name: task_assignments
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: task_id
+        type: UUID
+        nullable: false
+      - name: assigned_employee_id
+        type: UUID
+        nullable: false
+      - name: assigned_by
+        type: UUID
+        nullable: true
+      - name: assigned_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: assignment_due_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: handoff_to_employee_id
+        type: UUID
+        nullable: true
+        description: "When assignment transferred mid-shift; FK to employees(id)"
+      - name: handoff_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "active | handed_off | completed | declined"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_task_assignments_task_status
+        columns: [task_id, status]
+        unique: false
+      - name: idx_task_assignments_employee_active
+        columns: [assigned_employee_id, status]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [task_id]
+        detail: "FK to tasks(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [assigned_employee_id]
+        detail: "FK to L.employees(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('active','handed_off','completed','declined')"
+        enforcement: "database-constraint"
+
+  - name: task_completions
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: task_id
+        type: UUID
+        nullable: false
+      - name: completed_by
+        type: UUID
+        nullable: false
+      - name: completed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: completion_notes
+        type: TEXT
+        nullable: true
+      - name: photo_evidence_uri
+        type: TEXT
+        nullable: true
+        description: "Reference to merchant-owned object storage; required when task_template.requires_photo_evidence=true"
+      - name: time_spent_minutes
+        type: INTEGER
+        nullable: true
+      - name: variance_flag
+        type: TEXT
+        nullable: true
+        description: "Optional: ahead | on_time | overdue; computed against assignment_due_at"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_task_completions_task
+        columns: [task_id]
+        unique: true
+      - name: idx_task_completions_employee_completed
+        columns: [completed_by, completed_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [task_id]
+        detail: "FK to tasks(id)"
+        enforcement: "database-constraint"
+      - type: fk
+        columns: [completed_by]
+        detail: "FK to L.employees(id)"
+        enforcement: "database-constraint"
+      - type: unique
+        columns: [task_id]
+        detail: "One completion per task — re-runs of recurring templates spawn new tasks, not mutations"
+        enforcement: "database-constraint"
+      - type: conservation
+        columns: [completed_at, completion_notes, photo_evidence_uri]
+        detail: "Completions are immutable post-insert; corrections via compensating completion-correction event linked to original"
+        enforcement: "database-trigger"
+
+  - name: checklists
+    schema: app
+    crdm_category: Workflows
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: code
+        type: TEXT
+        nullable: false
+        description: "e.g., 'AM-OPEN-GARDEN-CENTER', 'PM-CLOSE-NURSERY-YARD'"
+      - name: name
+        type: TEXT
+        nullable: false
+      - name: scope
+        type: TEXT
+        nullable: false
+        description: "store_open | store_close | shift_change | weekly_audit | seasonal_prep | safety_compliance | custom"
+      - name: ordered_template_ids
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Ordered list of task_template_id UUIDs that constitute this checklist"
+      - name: required_completion_threshold_bps
+        type: INTEGER
+        nullable: false
+        default: "10000"
+        description: "Bps of tasks that must be completed for checklist_run to be marked complete (10000 = 100%); allows tolerable-skip checklists"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'active'"
+        description: "draft | active | paused | retired"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_checklists_merchant_code
+        columns: [merchant_id, code]
+        unique: true
+      - name: idx_checklists_scope_status
+        columns: [merchant_id, scope, status]
+        unique: false
+    write_pattern: mutable+soft-delete
+    integrity_constraints:
+      - type: check
+        columns: [scope]
+        detail: "scope IN ('store_open','store_close','shift_change','weekly_audit','seasonal_prep','safety_compliance','custom')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('draft','active','paused','retired')"
+        enforcement: "database-constraint"
+
+  - name: checklist_runs
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: checklist_id
+        type: UUID
+        nullable: false
+      - name: store_id
+        type: UUID
+        nullable: false
+      - name: started_by
+        type: UUID
+        nullable: true
+      - name: started_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: completed_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: true
+      - name: spawned_task_ids
+        type: JSONB
+        nullable: false
+        default: "'[]'"
+        description: "Array of task_id UUIDs spawned from this run"
+      - name: completion_rate_bps
+        type: INTEGER
+        nullable: false
+        default: "0"
+        description: "Computed: completed_task_count / total_task_count in basis points"
+      - name: status
+        type: TEXT
+        nullable: false
+        default: "'in_progress'"
+        description: "in_progress | completed | partial | abandoned | failed"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_checklist_runs_checklist_started
+        columns: [checklist_id, started_at]
+        unique: false
+      - name: idx_checklist_runs_store_started
+        columns: [store_id, started_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: fk
+        columns: [checklist_id]
+        detail: "FK to checklists(id)"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [status]
+        detail: "status IN ('in_progress','completed','partial','abandoned','failed')"
+        enforcement: "database-constraint"
+
+  - name: exception_signals
+    schema: app
+    crdm_category: Events
+    primary_columns:
+      - name: id
+        type: UUID
+        nullable: false
+        default: "uuid.uuid4()"
+      - name: merchant_id
+        type: UUID
+        nullable: false
+      - name: source_module
+        type: TEXT
+        nullable: false
+        description: "T | R | N | A | Q | C | D | F | J | S | P | L"
+      - name: source_event_type
+        type: TEXT
+        nullable: false
+        description: "Module-specific event identifier (e.g., 'q.alert.opened', 'd.transit.lost', 'f.gl_posting.failed', 'j.recommendation.urgent')"
+      - name: source_event_id
+        type: UUID
+        nullable: false
+        description: "Pointer back to the originating event row in the source module"
+      - name: severity
+        type: TEXT
+        nullable: false
+        description: "LOW | MEDIUM | HIGH | CRITICAL"
+      - name: payload
+        type: JSONB
+        nullable: false
+        description: "Source-module-specific signal payload + suggested response template"
+      - name: store_id
+        type: UUID
+        nullable: true
+      - name: spawned_task_id
+        type: UUID
+        nullable: true
+        description: "FK to tasks(id) when signal auto-routed to a task; null for signals dashboard-only"
+      - name: posted_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: "CURRENT_TIMESTAMP"
+    indexes:
+      - name: idx_exception_signals_source
+        columns: [merchant_id, source_module, source_event_type, posted_at]
+        unique: false
+      - name: idx_exception_signals_severity_posted
+        columns: [merchant_id, severity, posted_at]
+        unique: false
+    write_pattern: append-only
+    integrity_constraints:
+      - type: check
+        columns: [source_module]
+        detail: "source_module IN ('T','R','N','A','Q','C','D','F','J','S','P','L')"
+        enforcement: "database-constraint"
+      - type: check
+        columns: [severity]
+        detail: "severity IN ('LOW','MEDIUM','HIGH','CRITICAL')"
+        enforcement: "database-constraint"
+
+mcp_tools:
+  - name: get_tasks
+    signature: "get_tasks(merchant_id, store_id, date?, status?) -> [Task]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: true
+      - name: date
+        type: Date
+        required: false
+        description: "Defaults to today; resolves to scheduled_at-bounded window"
+      - name: status
+        type: String
+        required: false
+    returns:
+      - name: tasks
+        type: Array[Task]
+        description: "Paginated tasks for the store/date with template + assignment summary"
+    idempotency: idempotent-on-key
+    rate_limit: "200 calls/minute"
+
+  - name: get_open_tasks
+    signature: "get_open_tasks(store_id) -> OpenTaskQueue"
+    params:
+      - name: store_id
+        type: UUID
+        required: true
+    returns:
+      - name: queue
+        type: Object
+        description: "Store's open + assigned + in_progress + overdue tasks grouped by priority + due-window. The single tool a store-floor terminal calls every 60s for the live work board."
+    idempotency: idempotent
+
+  - name: assign_task
+    signature: "assign_task(task_template_id, store_id, employee_id, due_at, scheduled_at?) -> Task"
+    params:
+      - name: task_template_id
+        type: UUID
+        required: true
+      - name: store_id
+        type: UUID
+        required: true
+      - name: employee_id
+        type: UUID
+        required: true
+      - name: due_at
+        type: Timestamp
+        required: true
+      - name: scheduled_at
+        type: Timestamp
+        required: false
+    returns:
+      - name: Task
+        type: Object
+        description: "Newly created task + initial task_assignments row"
+    idempotency: not-idempotent
+    note: "Write tool — manager / owner role for non-template templates; manager OR self-claim for own role-matching templates."
+
+  - name: mark_task_complete
+    signature: "mark_task_complete(task_id, employee_id, completion_notes?, photo_evidence_uri?) -> TaskCompletion"
+    params:
+      - name: task_id
+        type: UUID
+        required: true
+      - name: employee_id
+        type: UUID
+        required: true
+      - name: completion_notes
+        type: String
+        required: false
+      - name: photo_evidence_uri
+        type: String
+        required: false
+        description: "Required when task's template.requires_photo_evidence=true"
+    returns:
+      - name: TaskCompletion
+        type: Object
+        description: "Completion event row + updated task status (open → completed)"
+    idempotency: not-idempotent
+    note: "Write tool — assigned employee or manager. Validates photo_evidence_uri presence when template requires it."
+
+  - name: get_checklist_status
+    signature: "get_checklist_status(checklist_run_id) -> ChecklistStatus"
+    params:
+      - name: checklist_run_id
+        type: UUID
+        required: true
+    returns:
+      - name: ChecklistStatus
+        type: Object
+        description: "Run + spawned tasks + per-task completion state + overall completion_rate_bps + threshold-met-flag"
+    idempotency: idempotent
+
+  - name: subscribe_exception_signals
+    signature: "subscribe_exception_signals(merchant_id, source_modules?, severity_floor?, store_id?) -> [ExceptionSignal]"
+    params:
+      - name: merchant_id
+        type: UUID
+        required: true
+      - name: source_modules
+        type: Array[String]
+        required: false
+        description: "Optional filter — defaults to all modules"
+      - name: severity_floor
+        type: String
+        required: false
+        description: "Surfaces signals at or above this severity (LOW | MEDIUM | HIGH | CRITICAL)"
+      - name: store_id
+        type: UUID
+        required: false
+    returns:
+      - name: signals
+        type: Array[ExceptionSignal]
+        description: "Recent exception signals matching filters with payload + suggested-response template + spawned-task linkage"
+    idempotency: idempotent-on-key
+    note: "Reading tool used by W's signal-router to decide which signals auto-spawn tasks vs dashboard-only."
+
+integrations:
+  upstream:
+    - module: Q
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "Q's HIGH/CRITICAL alerts auto-route into exception_signals → tasks for store-manager response (e.g., 'Investigate refund-pattern alert from Cashier-7 today')"
+    - module: D
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "D's transit_inventory.status='lost' + cycle_count variance signals route into W tasks for receiving-team investigation"
+    - module: F
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "F's gl_postings.status='failed' + invoice_matches.match_status='disputed' route into W tasks for accounting-staff resolution"
+    - module: J
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "J's replenishment_recommendations.priority='urgent' route into W tasks for buyer review-and-approve"
+    - module: S
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "S's items.is_perishable + dead_count threshold breaches route into W tasks for plant-team rotation/cleanup"
+    - module: A
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "A's get_maintenance_due output routes into W tasks for maintenance-team scheduling"
+    - module: L
+      relationship: "I_read_state_from"
+      verbs: []
+      detail: "W joins L.employees + L.schedules for assignment routing (right person, right shift, right role)"
+  downstream:
+    - module: L
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "L's productivity analytics consume task_completions for sales-per-task / tasks-per-shift performance metrics"
+    - module: Q
+      relationship: "subscribes_to_me"
+      verbs: []
+      detail: "Q reads checklist_runs.completion_rate_bps as a signal — chronic skip patterns at certain stores or under certain managers correlate with shrink (compliance correlate)"
+
+security:
+  auth:
+    required: true
+    method: "oauth"
+    detail: "OAuth-bearer required. Read tools accessible to manager / owner / cashier / gardener (employees see their own assignments). Write tools split: assign_task and template-create require manager+; mark_task_complete requires assigned employee OR manager; pesticide-compliance + safety-audit completions require photo_evidence_uri presence + manager review."
+  tenant_scoping:
+    primary_key: "merchant_id"
+    detail: "All rows scoped to merchant; row-level security at database layer + application-layer merchant_id filter on every query. Cross-employee task visibility gated by manager_hierarchies (only direct reports + same-shift peers)."
+  pii_handling:
+    categories:
+      - employee-id-on-assignments
+      - completion-notes-may-contain-customer-PII
+    retention_days: 2555
+    encryption: true
+    detail: "Employee references are UUIDs only; resolution to display name happens at query time through L's PII broker. Completion notes can contain customer info (e.g., 'Customer Sarah requested rain check on lily order') — encrypted at rest; treated as restricted-view in UI for non-manager roles."
 
 implementation_route:
   primary: integrated-hybrid
-  rationale: "Canary owns cross-domain exception detection + case management; merchant tool owns compliance reporting and external-audit integration."
+  rationale: "Canary owns daily ops tasks + checklists + cross-domain signal subscription; merchant tool owns long-range scheduling and HR-bound work allocation."
   perpetual_owner: canary
   period_owner: merchant-system
   alternatives_considered:
-    - "Legacy-native — rejected: existing systems are domain-siloed; W's innovation is cross-domain pattern detection"
+    - "Legacy-native — option (d) per SDD §6.13. Counterpoint REST has zero work-execution coverage; Square has none either. Canary owns this surface natively or it doesn't exist for SMB tier."
+    - "Package-integration with Beekeeper / YOOBIC / Foko Retail — not rejected; W exposes import bridge for merchants already running these tools, but Canary-native is the default install"
+    - "Legacy 'cross-domain exception detection generalizing Q' framing (prior thin manifest) — REJECTED at deepening. That's an MCP tool surface within W (subscribe_exception_signals), not the module's primary purpose. Q remains the LP detection engine; W is the operations-floor work surface."
   adr_reference: null
+  notes: |
+    Option (d) — Canary-native — same as L. Drivers:
+    - Counterpoint REST has zero work-execution surface (no task / checklist / workflow endpoints)
+    - Square has none either
+    - L&G + restaurant verticals + general SMB retail value daily-ops checklists (open, close, shift change, weekly compliance audit) — manual paper checklists or whiteboards are the typical state
+    - Q's HIGH-severity alerts need a routing target — without W, alerts pile up in the dashboard and don't drive action. W is what makes Q's detections actionable
 
 status_notes: |
-  v3 design. Cross-domain exception rules (LP, space, pricing, labor, distribution, forecast), auto-escalation policies, and case
-  aggregation are in scope. MCP tool surfaces and investigator workflows deferred to implementation phase.
-  Cross-merchant pattern detection and ML-driven escalation deferred to v4+.
+  v3 design (Canary-native option d). PARKED-BUT-SPEC'D for Phase 6+ shipping.
+
+  Spec lives now even though Phase 3 doesn't ship implementation — design clarity at manifest time prevents
+  downstream module owners (e.g., the Q rule-engine or J recommender) from inventing parallel task-execution
+  surfaces that would conflict with W when it arrives.
+
+  Tasks, task_templates, task_assignments, task_completions, checklists, checklist_runs, and exception_signals
+  schemas are in scope. MCP tool surfaces are spec'd. Implementation deferred to Phase 6+.
+
+  L&G specifics shipped in this manifest:
+  - **task_templates.category** includes perishable_rotation, irrigation_check, deadhead_grooming,
+    pesticide_compliance, opening_checklist, closing_checklist, inventory_count, safety_audit (plant nurseries
+    have OSHA + Prop 65 + EPA exposure)
+  - **schedule_pattern** supports `seasonal:Apr-Sep` recurrence — automatic task spawning during peak
+    while dormant Nov-Mar (irrigation-check tasks for greenhouse, deadhead/grooming for live displays)
+  - **requires_photo_evidence** flag on pesticide_compliance + safety_audit templates — regulators want
+    documentation; merchants want receipts
+  - **dead_count threshold breach signal** (from S) auto-spawns rotation tasks — connects S's perishable
+    inventory tracking to W's actionable cleanup work for store staff
+  - **checklist_runs.completion_rate_bps** with required_completion_threshold_bps lets merchants set
+    "100% completion required for safety_compliance" while allowing tolerable skips on routine
+    perishable_rotation when peak rush hits
+
+  This completes the 13-module manifest deepening sweep:
+  Mini-5 C, Mini-6 T, Mini-7 R, Mini-8 F, Mini-9 L, Mini-10 N, Mini-11 S, Mini-12 P, Mini-14 A,
+  Mini-15 Q, Mini-16 D, Mini-17 J, Mini-18 W = all 13 spine letters covered.
