@@ -192,7 +192,23 @@ hr{border:none;border-top:1px solid #D0C9BB;margin:2em 0}
   font-size:12px;color:#9A958E;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 """
 
-def page_html(title, body_html, sidebar_html, breadcrumb_html, site_title, fm):
+def build_top_nav_links(pages):
+    """Return top-level directory links pointing to the first page in each dir."""
+    dirs = {}
+    for rel, fm, title in pages:
+        if len(rel.parts) > 1:
+            d = rel.parts[0]
+            if d not in dirs:
+                label = d.replace('-',' ').replace('_',' ').title()
+                out = rel.with_suffix('.html')
+                if rel.name in ('index.md', 'Home.md'):
+                    out = rel.parent / 'index.html'
+                dirs[d] = (f'/{out}', label)
+    # Up to 3 links — pick shortest label names
+    items = sorted(dirs.values(), key=lambda x: len(x[1]))[:3]
+    return ''.join(f'<a href="{href}">{label}</a>' for href, label in items)
+
+def page_html(title, body_html, sidebar_html, breadcrumb_html, site_title, fm, nav_links=''):
     date = fm.get('date','')
     meta = f'<div class="page-meta">{htmllib.escape(str(date))}</div>' if date else ''
     return f"""<!doctype html>
@@ -212,8 +228,7 @@ def page_html(title, body_html, sidebar_html, breadcrumb_html, site_title, fm):
   <span class="slash">/</span>
   <span class="site-name">{htmllib.escape(site_title)}</span>
   <div class="nav-right">
-    <a href="/modules/">Modules</a>
-    <a href="/agents/">Agents</a>
+    {nav_links}
     <a href="mailto:canary@growdirect.io" class="cta">Contact</a>
   </div>
 </nav>
@@ -255,6 +270,7 @@ if static_src.is_dir():
     shutil.copytree(static_src, OUT / 'static')
 
 pages = collect_pages(ROOT)
+nav_links = build_top_nav_links(pages)
 print(f"Building {len(pages)} pages → {OUT}/")
 
 for rel, fm, page_title in pages:
@@ -275,7 +291,7 @@ for rel, fm, page_title in pages:
     out_path = OUT / out_rel
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    html = page_html(page_title, body_html, sb_html, bc_html, TITLE, fm)
+    html = page_html(page_title, body_html, sb_html, bc_html, TITLE, fm, nav_links)
     out_path.write_text(html, encoding='utf-8')
     print(f"  {rel} → {out_rel}")
 
