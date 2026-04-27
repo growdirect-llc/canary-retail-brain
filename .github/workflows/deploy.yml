@@ -1,4 +1,4 @@
-name: Deploy Quartz site to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   push:
@@ -21,57 +21,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          path: vault
 
-      - name: Clone Quartz
-        run: git clone --depth 1 --branch v4 https://github.com/jackyzha0/quartz.git quartz
+      - name: Install Python dependencies
+        run: pip install markdown pyyaml
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install Quartz dependencies
-        working-directory: quartz
-        run: npm ci
-
-      - name: Copy vault content
-        run: |
-          rsync -av \
-            --exclude='.obsidian' \
-            --exclude='.github' \
-            --exclude='quartz' \
-            --exclude='quartz.config.ts' \
-            --exclude='quartz.layout.ts' \
-            --exclude='static' \
-            --exclude='README.md' \
-            --exclude='ACKNOWLEDGMENT.md' \
-            --exclude='CONTRIBUTING.md' \
-            --exclude='NOTICE.md' \
-            --exclude='SECURITY.md' \
-            --exclude='ready-to-show-confirmation.md' \
-            vault/ quartz/content/
-          if [ -f quartz/content/Home.md ]; then
-            mv quartz/content/Home.md quartz/content/index.md
-          fi
-
-      - name: Overlay Quartz customizations
-        run: |
-          cp vault/quartz.config.ts quartz/quartz.config.ts
-          cp vault/quartz.layout.ts quartz/quartz.layout.ts
-          if [ -d vault/quartz/styles ]; then
-            cp -r vault/quartz/styles/. quartz/quartz/styles/
-          fi
-          if [ -d vault/static ]; then
-            mkdir -p quartz/quartz/static
-            cp -r vault/static/. quartz/quartz/static/
-          fi
-
-      - name: Build Quartz
-        working-directory: quartz
-        run: npx quartz build
-
-      - name: Write CNAME
-        run: echo "crb.growdirect.io" > quartz/public/CNAME
+      - name: Build site
+        run: python3 build.py --site-title "Canary Retail Brain" --out _site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -79,7 +34,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: quartz/public
+          path: _site
 
   deploy:
     needs: build
