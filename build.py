@@ -68,6 +68,15 @@ def collect_pages(root: Path):
         pages.append((rel, fm, title))
     return pages
 
+def get_nav_order(pages):
+    """Read nav_order list from Home.md frontmatter if present."""
+    for rel, fm, title in pages:
+        if rel.name in ('Home.md', 'index.md') and len(rel.parts) == 1:
+            order = fm.get('nav_order', [])
+            if isinstance(order, list):
+                return order
+    return []
+
 def build_sidebar(pages, current_rel):
     """Build sidebar HTML grouped by top-level directory."""
     groups = {}
@@ -76,9 +85,14 @@ def build_sidebar(pages, current_rel):
         group = parts[0] if len(parts) > 1 else '.'
         groups.setdefault(group, []).append((rel, title))
 
-    # Sort: root files first, then dirs alphabetically
+    nav_order = get_nav_order(pages)
+
     def sort_key(g):
-        return (0 if g == '.' else 1, g.lower())
+        if g == '.':
+            return (-1, '')
+        if nav_order and g in nav_order:
+            return (nav_order.index(g), g.lower())
+        return (len(nav_order) + 1, g.lower())
 
     html = ['<nav class="sb-nav">']
 
