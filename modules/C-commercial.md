@@ -164,10 +164,17 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/C-commercial.md
 
 ### Canary Detection Hooks
 
-- **C.4.1** (payment-velocity anomaly) feeds **Q-TM-02** tender-mix rule family via B2B payment routing context.
-- **C.4.2** (credit-tier mismatch) feeds **Q-DM-03** discount-manipulation rule family.
-- **C.4.3–C.4.5** (AR aging, duplicate B2B) are owned by C; flagged for the Q-IS rule family as accumulation signals.
-- **Note:** B2B-CREDIT-01 and B2B-AR-01 are C-native rules surfaced through Q's Chirp engine; they are not Q-rule-catalog entries.
+C.4 rules are cataloged in the Q rule catalog under the **Q-C** (Commercial / B2B) family. C derives the input signals; Q fires the alert via Chirp. These are account-management alerts, not LP fraud alerts — routed to the account manager surface in Owl rather than the LP queue.
+
+| C.4 rule | Q catalog entry | Chirp alert type |
+|---|---|---|
+| C.4.1 B2B-CREDIT-01 (at-limit transacting) | **Q-C-01** | Account-management alert → Owl account manager surface |
+| C.4.2 B2B-CREDIT-02 (rapid credit consumption) | **Q-C-02** | Account-management alert → Owl (pre-delinquency) |
+| C.4.3 B2B-AR-01 (past-due threshold) | **Q-C-03** | Account-management alert → Owl account manager surface |
+| C.4.4 B2B-TIER-01 (price-tier mismatch) | **Q-C-04** | Data-quality flag → store manager (not LP queue) |
+| C.4.5 B2B-PATTERN-01 (after-hours commercial) | **Q-C-05** | Low signal → escalates when combined with Q-C-01/02 |
+
+See `canary-module-q-counterpoint-rule-catalog.md` §Commercial / B2B for substrate, logic, parameters, and allow-list for each rule.
 
 ### User stories
 
