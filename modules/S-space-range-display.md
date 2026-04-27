@@ -1,159 +1,335 @@
 ---
-classification: confidential
-owner: GrowDirect LLC
-type: module-spec
-prefix: S
-status: v3 (design)
-sibling-modules: [C, D, P, L, W]
+classification: internal
+type: wiki
+sub-type: module-functional-decomposition
+date: 2026-04-26
+last-compiled: 2026-04-26
+module: S
+solution-map-cell: ● Full direct (Counterpoint Item / Inventory / EC families — 17 endpoints; the largest catalog surface in the API)
+companion-modules: [T, R, Q, P, J, D, A]
+companion-substrate: [ncr-counterpoint-api-reference.md, ncr-counterpoint-endpoint-spine-map.md]
+companion-context: [garden-center-operating-reality.md, ncr-counterpoint-rapid-pos-relationship.md]
+companion-canary-spec: Canary-Retail-Brain/modules/S-space-range-display.md
+companion-canary-crosswalk: Brain/wiki/canary-module-s-space-range-display.md
+companion-catz: CATz/proof-cases/specialty-smb-counterpoint-solution-map.md
+methodology-note: "Sister card to canary-module-q/t/r/j-functional-decomposition.md. Same template per CATz/method/artifacts/module-functional-decomposition.md. S is the most vertical-distinctive substrate module — garden-center mix-and-match, fractional units, and multi-name plants are first-class L2/L3 concerns, not afterthoughts."
 ---
 
-# S — Space, Range, Display
+# Module S (Space, Range, Display — Items / Catalog) — Functional Decomposition
 
-S owns the physical merchandising surface: planograms, fixture inventory, shelf-edge label compilation, and range allocation per location and zone. S is the canonical "where the product is" — the geographic and spatial binding that closes the handoff between merchandise planning and store operations.
+> **Artifact layer.** Third of three Canary module artifact layers:
+> 1. **Canonical spec** (vendor-neutral) — `Canary-Retail-Brain/modules/S-space-range-display.md`
+> 2. **Code/schema crosswalk** (Canary-specific) — `Brain/wiki/canary-module-s-space-range-display.md`
+> 3. **Functional decomposition** (Counterpoint-substrate-aware, L2/L3 + user stories) — *this card*
 
-S is one of the [[spine-13-prefix#v3-full-spine-s-p-l-w|v3 full-spine expansion]] modules. It completes the three-canonical model — merchandising (C), specification (implied, shared with TTL backbones), and now space (S) — that the Intactix and Tesco suites pioneered. An item cannot be orderable at a location until S has assigned it a place on the planogram.
+## Governing thesis
 
-## Purpose
+S is the **catalog substrate** for everything in the spine that touches a product. Q reads category margin targets from S. P-derived pricing observations join through S. J's like-item forecasting reaches into S for category-average velocity. T's transaction lines reference S for item identity. R's tier-aware allow-lists join through S to apply per-category exemptions. Every non-trivial detection or projection routes through S.
 
-S owns four jobs:
+Counterpoint's catalog surface is **the richest of any spine module** — 17 endpoints covering item master, categories, serial numbers, images, per-location inventory, vendor-item linkage, and a parallel eCommerce catalog. For a Lawn & Garden tenant specifically, three vertical capabilities sit on top of this substrate and are load-bearing: **mix-and-match groups** (`MIX_MATCH_COD` on items + per-line on Documents), **fractional unit modeling** (`PREF_UNIT_NUMER/DENOM/NAM` for "sell flat OR sell individual plant from flat"), and **multi-name plant identity** (botanical / common / Spanish names — convention-dependent across the `ADDL_DESCR_*` and `ATTR_COD_*` slots).
 
-1. **Planogram authoring and management.** Store-level and zone-level planograms (micro-planograms) with capacity constraints, pack-configuration assignments, and facings allocation. Planograms are the source of truth for what the floor looks like and what capacity exists.
-2. **Fixture and space inventory.** Master data: store fixture layouts, shelf dimensions, linear footage per zone, capacity per shelf. The physical constraints that planograms must respect.
-3. **Shelf-edge label (SEL) compilation and delivery.** Automatic compilation of the three-canonical layer (merchandising price/identity + planogram location/facings + specification compliance) into printable shelf-edge label instructions. Daily batch SEL generation; emergency facings updates when planograms change mid-period.
-4. **Ordering gate enforcement.** C (Commercial) and J (Forecast & Order) read S's planogram assignment to validate that an item is authorized at a location before order recommendation or receipt acceptance. If an item has no planogram assignment, it cannot be ordered.
+S is **● Full direct** in every Counterpoint Solution Map cell, but the cell hides three real architectural concerns that don't show up in simpler retail verticals: (1) **item lifecycle is short and seasonal** — the catalog churns mid-season, item-code drift across intakes is normal not anomalous, (2) **the ecommerce catalog runs in parallel** with separate publish flags + state machine + control table, and (3) **per-customer naming conventions for multi-name fields** vary across Rapid POS deployments — there is no universal mapping for which `ADDL_DESCR_N` slot holds which language.
 
-S does **not** own:
+## Counterpoint Endpoint Substrate
 
-- Demand forecasting or replenishment recommendations. That belongs to [[J-forecast-order|J (Forecast & Order)]].
-- Pricing and promotion strategy. That belongs to [[P-pricing-promotion|P (Pricing & Promotion)]].
-- Pack configuration and specification authoring. That belongs to the merchandising master and specification layer (C and external spec canonical).
-- Store layout and construction. S manages the as-is fixture inventory, not the physical remodel.
-
-## CRDM entities touched
-
-| CRDM entity | S's relationship | How |
+| Counterpoint Endpoint | CRDM Entity | L2 Process Area |
 |---|---|---|
-| **Things** | Owns the Planogram subset | Per-location planogram assignments with item FKs to C's items |
-| **Places** | Owns the Fixture subset | Store fixture master, shelf dimensions, zone definitions |
-| **Workflows** | Reads | Reads ledger movements to validate on-hand against planogram capacity; alerts if over-capacity |
-| **Events** | Reads | Subscribes to stock-ledger movements to enforce inventory compliance |
-| **People** | Reads | Store operations staff; planogram authors (merchandisers) |
+| IM_ITEM (location flags) | Item-location assignment | S.1 (Range definition), S.2 (Display catalog) |
+| Items_ByLocation | Location-item catalog | S.1 (Location range audit) |
+| Inventory_ByLocation | SOH by location | S.3 (Space utilization: stock vs. allocated facing) |
+| PS_DOC_LIN | Transaction line detail | S.4 (Sales velocity by display position) |
+| IM_ITEM.ITEM_TYP | Item classification | S.1 (Asset-item exclusion from range, sourced from A) |
 
-S's posture: **S is a Fixture-and-Planogram registry that gates item orderability and drives shelf-edge label compilation.** S does not modify the ledger; S reads the ledger to validate inventory compliance.
+## Executive summary
 
-## ARTS mappings
-
-ARTS does not define Planogram or Fixture Management specifications. Canary defines these internally, drawing on the Intactix and Tesco SRD reference models:
-
-| Canary construct | Definition | Reference |
+| Dimension | Count | Source |
 |---|---|---|
-| **Planogram (macro)** | Store-level floor plan with zone definitions, fixture assignments, linear footage per zone | Intactix Space Planning / Floor Planning |
-| **Planogram (micro)** | Shelf-level planogram with item assignments, facings, pack configurations, capacity constraints | Intactix Space Planning; Tesco SRD S-prefix interfaces |
-| **Fixture Master** | Inventory of physical shelving: shelf ID, dimensions (height, width, depth), linear footage, capacity units, zone assignment | Intactix IKB; Tesco SRD fixture data |
-| **Shelf-Edge Label (SEL)** | Compiled label instruction set per rail per night; includes item identity (UPC, description), price, planogram location, compliance marks | Tesco TTL (Tesco Technical Library) + SRD S039 (SEL batch) |
+| L2 process areas | 7 | This card |
+| L3 functional processes | 36 | This card |
+| Counterpoint endpoints in S's path | 17 (Item / Items / Items_ByLocation / ItemCategories / ItemCategory / ItemSerial / ItemSerials / Item_Images / Item_ImageFilename / Item_Inventory / Inventory_ByLocation / InventoryControl / InventoryCost / InventoryEC / InventoryLocations / VendorItem / EC / ECCategories) | API reference |
+| Garden-center distinctive L2 areas | 3 (S.3 mix-and-match, S.4 fractional units, S.5 lifecycle/drift) | garden-center-operating-reality |
+| Cached entities (24h server-side) | 4 (Items metadata, ItemCategories, eCommerce Categories, eCommerce Control) | API reference cache discipline |
+| Substrate contracts S owes downstream | 11 | This card §S.7 |
+| Assumptions requiring real-customer validation | 11 | Tagged `ASSUMPTION-S-NN` |
+| User stories enumerated | 52 | Observer + actor mix; cast in §Operating notes |
 
-Cross-reference to ARTS:
+**Posture:** archetype-shaped against Counterpoint specifically. The garden-center vertical concerns (mix-and-match, fractional units, multi-name plants) are first-class L2/L3 areas because they're load-bearing for Q rules and P-derived pricing observations. Per-customer convention discovery for multi-name fields and category-margin targets happens at onboarding.
 
-- ARTS POSLog includes `item_id` and `location_id` (S can join to validate location-level planogram)
-- ARTS has no Planogram or Fixture construct (store-operations focused)
+## L1 → L2 → L3 framework
 
-## Ledger relationship
+```
+L1 (Solution Map cell)         S = ● Full direct (Counterpoint Item / Inventory / EC families — 17 endpoints)
+                                 │
+L2 (Process areas)               ├── S.1  Item master ingestion + sync
+                                 ├── S.2  Category hierarchy + margin targets
+                                 ├── S.3  Mix-and-match group surfacing      (garden-center distinctive)
+                                 ├── S.4  Fractional unit modeling           (garden-center distinctive)
+                                 ├── S.5  Item lifecycle + drift handling    (garden-center reality)
+                                 ├── S.6  eCommerce catalog surface
+                                 └── S.7  Cross-module substrate contracts
+                                 │
+L3 (Functional processes)       (36 — enumerated per L2 below)
+                                 │
+L4 (Implementation detail)      Lives in SDDs + module specs
+                                  (Canary-Retail-Brain/modules/S-space-range-display.md,
+                                   docs/sdds/canary/ncr-counterpoint-retail-spine-integration.md §6.4)
+```
 
-**S is SUBSCRIBER and GATEKEEPER for the ordering pipeline.**
+## S.1 — Item master ingestion + sync
 
-S does NOT publish movements to the stock ledger. Instead:
+**Purpose.** Pull the Counterpoint item catalog into CRDM. Counterpoint's Item endpoint is the single richest entity surface in the API — `IM_ITEM` carries dozens of fields covering identity, classification, pricing, costing, attributes, ecommerce flags, mix-and-match grouping, vendor linkage, and serial-number tracking. S surfaces all of it without normalization.
 
-- S **reads** current stock-on-hand (SOH) per item per location from the ledger
-- S **reads** movement history to validate inventory compliance with planogram capacity
-- S **enforces** the ordering gate: item cannot be ordered at a location until S has assigned it a planogram position at that location
+**Companion cards.** `ncr-counterpoint-api-reference` (Item endpoint family + cache discipline), `Canary-Retail-Brain/modules/S-space-range-display.md` (canonical spec), `canary-module-s-space-range-display.md` (schema crosswalk).
 
-The ordering-gate mechanism is the substrate-level innovation that closes the integration loop. It inverts the industry-standard sequence: 
-- **Old model:** Buyer commits PO → Store receives → Merchandiser figures out where to put it
-- **S model:** Merchandiser assigns planogram → Buyer commits PO → Store receives → Merchandiser confirms placement
+### L3 processes
 
-When C (Commercial) or J (Forecast & Order) attempt to recommend or post a receipt for an item at a location, they query S first: "Is this item assigned to a planogram at this location?" If not, the PO is rejected and the buyer is directed to S to request planogram assignment.
+| ID | L3 process | Substrate | Notes |
+|---|---|---|---|
+| S.1.1 | Full-row enrichment from `GET /Item/{ItemNo}` | `IM_ITEM` master | Called when single-item enrichment needed (price update, attribute change) → TBD: L4 implementation detail pending |
+| S.1.2 | Incremental sync via `GET /Items` | Paginated, category/subcategory-filterable | Items metadata is **cached server-side 24h** — `ServerCache: no-cache` for first poll of each cycle → TBD: L4 implementation detail pending |
+| S.1.3 | Per-location item enrichment via `GET /Items/{LocId}` | Per-`LocId` view | Cross-cuts D (per-location inventory); same item can have per-location flags → TBD: L4 implementation detail pending |
+| S.1.4 | Item image references via `GET /Item/{ItemNo}/Images` | Filename list | Image binaries fetched on-demand via `GET /Item/Images/{Filename}` — never bulk-cached → TBD: L4 implementation detail pending |
+| S.1.5 | Serial number tracking via `GET /Item/{ItemNo}/Serial/{SerialNo}` | `SN_SER` lookup | Per-serial metadata; substrate for high-fashion / asset-tracking patterns (less relevant for L&G) → TBD: L4 implementation detail pending |
+| S.1.6 | Per-location serial enumeration | `GET /Item/{ItemNo}/Serials/Location/{LocId}` | Active serials at a location; cross-cuts D → TBD: L4 implementation detail pending |
+| S.1.7 | Vendor-item linkage via `GET /VendorItem/{VendorNo}/Item/{ItemNo}` | `IM_VEND_ITEM` | Substrate for J's vendor-master + supplier-scorecard → TBD: L4 implementation detail pending |
 
-Movement reads for validation:
+### User stories
 
-- **Stock-on-hand (SOH) per item per location** — compared against planogram capacity. Alert if inventory exceeds capacity (overstocking, shrink risk).
-- **Movement history per item per location** — trend velocity, stockout frequency, restocking intervals. Used to validate planogram capacity adequacy.
+- *As S's catalog ingester, I want the daily item-metadata poll to respect the 24h server-cache by default and only force `ServerCache: no-cache` when an item-attribute change is suspected (price update, vendor change, attribute toggle).*
+- *As S, I want every `IM_ITEM` field preserved verbatim through ingestion — downstream modules (P-derived pricing, Q margin rules) need the raw values, not a normalized subset.*
+- *As Q, I want category and subcategory codes attached to every item reference at parse-time, so margin-erosion rules don't need a second join to resolve item context.*
+- *As J, I want vendor-item linkage available without a separate Counterpoint call per recommendation — the supplier should be on the item record at recommendation generation time.*
 
-**Perpetual-vs-period boundary.** Canary owns: planogram authoring + ordering gate. Merchant tool owns: capital fixture planning (merchant capex tool if any). Default implementation route: `integrated-hybrid`. ([[../platform/perpetual-vs-period-boundary|principle]] · [[../platform/module-manifest-schema#implementation-route|manifest field]])
+## S.2 — Category hierarchy + margin targets
 
-## Integrations
+**Purpose.** Counterpoint exposes category and subcategory codes plus per-category margin targets (`MIN_PFT_PCT`, `TRGT_PFT_PCT`). These are **load-bearing for Q's margin-erosion rules** (Q-ME-01) and informational for P-derived pricing observations. The hierarchy is also the foundation for J's like-item forecasting and S's own assortment-and-range execution surface.
 
-**Upstream sources** (data producers):
+**Companion cards.** `ncr-counterpoint-api-reference` § "Category margin targets", `canary-module-q-counterpoint-rule-catalog.md` § Q-ME-01 (consumer of margin targets).
 
-- Store operations input (planogram authoring, fixture updates, zone reconfigurations)
-- C (Commercial) — item master for planogram assignment
-- Stock ledger — SOH and movement history for validation
-- Internal spec canonical (TTL or equivalent) — pack configurations, label compliance rules
+### L3 processes
 
-**Downstream consumers** (data subscribers):
+| ID | L3 process | Substrate | Notes |
+|---|---|---|---|
+| S.2.1 | Category hierarchy ingestion | `GET /ItemCategories` | Hierarchical list; cached 24h → TBD: L4 implementation detail pending |
+| S.2.2 | Per-category detail enrichment | `GET /ItemCategory/{CategoryCode}` | Includes `MIN_PFT_PCT` + `TRGT_PFT_PCT` per category → TBD: L4 implementation detail pending |
+| S.2.3 | Category-margin-target surfacing to Q | Direct surface on every item join | Q-ME-01 substrate (below-category-target margin detection) → TBD: L4 implementation detail pending |
+| S.2.4 | Category-history-of-assignment tracking | Effective-dated category assignments per item | Plan-vs-actual comparisons cross hierarchy reorganizations cleanly (per J.1.5) → TBD: L4 implementation detail pending |
+| S.2.5 | Subcategory rollup | `IM_ITEM.SUBCAT_COD` to category | Hierarchy traversal for analytics + dashboard rollups → TBD: L4 implementation detail pending |
+| S.2.6 | Per-category assortment plan substrate | Reads cross-cut with P (which categories carry seasonal plans) | Substrate for P; not authored by S → TBD: L4 implementation detail pending |
 
-- **C (Commercial)** — reads planogram assignments to validate items are "orderable" before accepting OTB constraints
-- **J (Forecast & Order)** — reads planogram assignments and capacity to constrain replenishment recommendations
-- **D (Distribution)** — reads planogram assignments on receipt to validate item placement is ready
-- **P (Pricing & Promotion)** — reads planogram assignments on price changes to validate signage/label impact
-- **SEL/labeling system** — daily batch consumes planogram data + price/compliance data to compile shelf-edge labels
-- **Store operations dashboard** — displays planogram capacity utilization, stockout alerts, over-capacity warnings
+### User stories
 
-## Agent surface
+- *As S, I want every item join to carry the category's `MIN_PFT_PCT` and `TRGT_PFT_PCT` inline, so Q-ME-01 can compute realized-vs-target margin per line without a second lookup.*
+- *As S, I want category reassignment events captured with effective dates so historical sales attribute correctly to "the category at the time of the sale" — not "the category as of today" — for plan-vs-actual comparisons.*
+- *As a Garden-Center GM in Owl, I want to ask "which categories are below margin target this month" and get a per-category rollup with the contributing items drillable.*
+- *As J's like-item forecaster, I want category-average velocity available per `(category, location)` so new mid-season SKUs can use category context for their initial forecast.*
 
-S exposes MCP tool families for store operations and merchandising workflows:
+## S.3 — Mix-and-match group surfacing (garden-center distinctive)
 
-- **Planogram authoring** — create/edit store-level and zone-level planograms; assign items to shelves with pack configuration and facings
-- **Capacity validation** — check planogram capacity utilization (current SOH vs. assigned capacity); receive over-capacity alerts
-- **Fixture management** — query fixture master; request fixture updates (new shelf, dimension change, zone reconfig)
-- **Orderability check** — confirm whether an item is planogram-assigned at a location (gate for PO entry)
-- **SEL compilation monitoring** — view daily SEL batch status; request emergency facings update for mid-period planogram changes
-- **Movement trend analysis** — query item velocity and restocking intervals per location to validate capacity adequacy
+**Purpose.** Mix-and-match flat pricing — buy 6 perennials for $30 regardless of which 6 — is a defining capability of garden-center retail. Counterpoint surfaces this through `MIX_MATCH_COD` on `IM_ITEM` (group identity) and on `PS_DOC_LIN` (per-line membership at sale time, plus `MIX_MATCH_CONTRIB` and `MIX_MATCH_PRC_BASED_ON` for the bundle math). S surfaces the group identity; T captures the per-line application; Q audits the bundle integrity.
 
-## Security posture
+**Companion cards.** `ncr-counterpoint-rapid-pos-relationship` § "Mix-and-match flats / bundle pricing", `canary-module-q-counterpoint-rule-catalog.md` § Q-MM-01 / Q-MM-02 (consumer of mix-and-match group identity).
 
-- **Auth.** All writes (planogram changes, fixture updates) require `store_operations` or `merchandiser` role. MCP tool-level role checking enforced.
-- **Tenant scoping.** Every planogram and fixture record carries `merchant_id`; every read is row-level-secured.
-- **Capacity governance.** Planogram assignments enforce merchandise hierarchy and cost-method constraints (items from RIM departments cannot share shelf space with Cost-Method items without explicit override).
-- **Auditability.** Every planogram change (item assignment, facings change, pack configuration update) is logged with `changed_by`, `changed_at`, `reason_code` (plano refresh, seasonal reset, emergency restock, etc.).
-- **SEL integrity.** Shelf-edge labels are compiled deterministically from planogram + price + compliance data; label compile failures are escalated to store operations immediately.
+### L3 processes
 
-## Roadmap status
+| ID | L3 process | Substrate | Notes |
+|---|---|---|---|
+| S.3.1 | Item-side mix-and-match group identification | `IM_ITEM.MIX_MATCH_COD` | Membership in a bundle group; same code across items in the group → TBD: L4 implementation detail pending |
+| S.3.2 | Bundle pricing rule surfacing | Where the bundle price lives (likely separate config; **ASSUMPTION-S-04**) | Per-bundle target price and qualification rules → TBD: L4 implementation detail pending |
+| S.3.3 | Per-line bundle attribution at sale time | Cross-cut with T — `PS_DOC_LIN.MIX_MATCH_COD` + `MIX_MATCH_CONTRIB` + `MIX_MATCH_PRC_BASED_ON` | T flattens these per line; S provides the group context for interpretation → TBD: L4 implementation detail pending |
+| S.3.4 | Bundle integrity audit | Cross-cut with Q — Q-MM-02 detects mix-match code on a line whose item isn't in the group | S supplies the group-membership check → TBD: L4 implementation detail pending |
+| S.3.5 | Bundle-margin computation | Per-bundle realized vs target | Substrate for Q-MM-01 (bundle producing below-cost line — flag at bundle level not line level) → TBD: L4 implementation detail pending |
 
-- **v3 (design)** — Planogram authoring and management. Fixture master. Planogram-capacity validation. Ordering gate enforcement (blocks PO/receipt if item not assigned). SEL compilation driver (contracts with external label system). Read-only and restricted-write MCP tools for store operations workflows.
-- **v3.1** — Zone-level micro-planograms with advanced capacity modeling (shelf-specific weights, compressible vs. rigid fixtures).
-- **v3.2** — Planogram optimization engine (suggest item assignments based on velocity, margin, shrink patterns).
-- **v3.3** — Integration with P (Pricing & Promotion) for signage-change impact analysis (markdown events trigger SEL re-compile).
+### User stories
 
-## Open questions
+- *As S, I want to surface every item's `MIX_MATCH_COD` so Q can build a per-bundle membership table at boot and answer "is this line legitimately part of this bundle" deterministically.*
+- *As Q, I want bundle-level margin computed — sum of bundle line `EXT_PRC` minus sum of bundle line `EXT_COST` — flagged only when the BUNDLE goes negative, not when individual lines do (intentional structure of mix-and-match flat pricing).*
+- *As an LP Analyst investigating a Q-MM-01 case in Fox, I want to see the bundle definition snapshot at detection time + the lines actually rung + the resulting bundle margin, all on one screen.*
+- *As a Garden-Center GM in Owl, I want to ask "which mix-and-match bundles are running below target this season" and get the per-bundle drilldown.*
 
-1. **Planogram authorization scope.** Can every store manager author planograms for their store, or must a central merchandiser approve planogram changes? Per-merchant policy?
-2. **Capacity unit standardization.** Is capacity always measured in "units" (items), or do some retailers want weight/volume (for bulk/bulk items)? Pack-configuration handling for mixed-unit items?
-3. **Multi-location assortment matrix.** Does S maintain a location-to-item assortment matrix (store A carries item X, store B doesn't), or is assortment uniform across all locations? Current assumption: uniform at v3, matrix at v3.1.
-4. **SEL system integration.** Is the SEL compile target an external labeling system (Sysrepublic CRDM, competitor), or does Canary own SEL generation? Integration contract / API shape?
-5. **Fixture-update impact on capacity.** When a store requests a fixture update (new shelf, remodel), how does S validate that remaining capacity is adequate for existing planogram? Conflict resolution workflow?
+## S.4 — Fractional unit modeling (garden-center distinctive)
+
+**Purpose.** Garden centers sell the same physical item at multiple unit granularities — buy a flat of 18 perennials, or buy a single perennial from the same flat. Counterpoint models this through `IM_ITEM.PREF_UNIT_NUMER/DENOM/NAM` + `STK_UNIT` and per-line `PS_DOC_LIN.QTY_NUMER/QTY_DENOM/QTY_UNIT/SELL_UNIT`. The fractional model is also load-bearing for non-plant categories (bulk soil sold by cubic foot or yard, fertilizer sold by lb or bag).
+
+**Companion cards.** `ncr-counterpoint-rapid-pos-relationship` § "Bulk-to-fractional sales".
+
+### L3 processes
+
+| ID | L3 process | Substrate | Notes |
+|---|---|---|---|
+| S.4.1 | Preferred unit identification | `IM_ITEM.PREF_UNIT_NUMER/DENOM/NAM` | The buyer-set "default" unit for sale (e.g., "single plant" vs "flat of 18") → TBD: L4 implementation detail pending |
+| S.4.2 | Stock unit identification | `IM_ITEM.STK_UNIT` | The unit inventory is counted in (typically the larger/parent unit) → TBD: L4 implementation detail pending |
+| S.4.3 | Per-line fractional quantity surfacing | Cross-cut with T — `PS_DOC_LIN.QTY_NUMER/QTY_DENOM/QTY_UNIT/SELL_UNIT` | T flattens fractional quantities; S provides the unit-conversion context → TBD: L4 implementation detail pending |
+| S.4.4 | Inventory deduction at fractional scale | Cross-cut with D — selling 1/18th of a flat decrements 1/18th of a stock unit | D handles the math; S provides the conversion factor → TBD: L4 implementation detail pending |
+| S.4.5 | Fractional-unit-aware analytics | Aggregate sales + margin computed in stock-unit-equivalents | Owl queries return consistent units for cross-item rollups → TBD: L4 implementation detail pending |
+
+### User stories
+
+- *As S, I want every item's stock-unit and preferred-sell-unit available so D can decrement inventory correctly when a fractional quantity is sold.*
+- *As Owl, I want to answer "how many flats of perennials sold this week" by aggregating fractional quantities back to flat-equivalents transparently — the user shouldn't need to know whether each sale was a flat or 18 individual plants.*
+- *As Q, I want to recognize fractional-unit sales as legitimate — a single-plant sale shouldn't fire Q-DM-03 (below-cost) just because the per-unit cost lookup gave the flat cost not the plant cost.*
+
+## S.5 — Item lifecycle + drift handling
+
+**Purpose.** Garden-center catalogs are short-lifecycle and high-churn. New items appear mid-season as new shipments arrive; old items retire. Item-code drift is normal — the same plant cultivar may exist as multiple `ITEM_NO` records over time as different intakes get coded differently. Multi-name plant identity (botanical / common / Spanish) is convention-dependent across the `ADDL_DESCR_*` and `ATTR_COD_*` slots; per-customer convention discovery happens at onboarding.
+
+**Companion cards.** `garden-center-operating-reality` § "What this means for the data flow" (item-code drift, mid-season ad-hoc additions, multi-name plants).
+
+### L3 processes
+
+| ID | L3 process | Substrate | Notes |
+|---|---|---|---|
+| S.5.1 | Item status surfacing | `IM_ITEM.STAT` (active / discontinued / etc.) | Substrate for end-of-life clearance recognition + retired-item filtering → TBD: L4 implementation detail pending |
+| S.5.2 | Multi-name field surfacing | `IM_ITEM.ADDL_DESCR_1/2/3` + `ATTR_COD_1/2` | Convention-dependent (**ASSUMPTION-S-07**); per-customer mapping captured at onboarding → TBD: L4 implementation detail pending |
+| S.5.3 | Item-code drift handling | Same plant under multiple `ITEM_NO`s across intakes | S surfaces drift-tolerance metadata; downstream rules apply tolerance bands (per garden-center allow-list framework) → TBD: L4 implementation detail pending |
+| S.5.4 | Mid-season catalog addition | New `ITEM_NO` appears between full poll cycles | S's incremental poll picks up new items via `RS_UTC_DT` filter; like-item forecasting (J.1.6) bridges the no-history gap → TBD: L4 implementation detail pending |
+| S.5.5 | Retired-item handling | `STAT='D'` discontinued | Soft-retire in CRDM; preserve historical references; exclude from future replenishment recommendations → TBD: L4 implementation detail pending |
+| S.5.6 | Manual-entry-error tolerance | Hand-typed item creation by buyers at intake | Flag-and-ingest, not reject — per garden-center wiki posture → TBD: L4 implementation detail pending |
+
+### User stories
+
+- *As S, I want item-code drift recognized as normal — when two different `ITEM_NO`s have very similar descriptions and the same vendor, surface the linkage as a hint to investigators rather than treating each as fully independent.*
+- *As S, I want per-customer multi-name field convention captured at onboarding — for Customer X, `ADDL_DESCR_1` is botanical name, `ADDL_DESCR_2` is Spanish — so plant lookups across languages work consistently.*
+- *As a Garden-Center GM in Owl, I want to search "monstera" and find both the item with `DESCR='Monstera Deliciosa'` and the item with `ADDL_DESCR_2='Costilla de Adán'` (Spanish common name) — the multi-name discovery is the language layer over the catalog.*
+- *As Q.6 vertical pack, I want item-code drift on the allow-list for Q-ME-01 (margin) and Q-CT-01 (tier-on-retail-pattern) so churning catalog doesn't fire spurious detections.*
+
+## S.6 — eCommerce catalog surface
+
+**Purpose.** Counterpoint runs a parallel eCommerce catalog with its own publish state machine, EC-specific flags on items, EC-specific category tree, and EC-specific inventory snapshots. Whether a tenant uses NCR Retail Online, a third-party connector (IceSync / Shopify integration / etc.), or DIY against the API, the EC fields surface through the same standard endpoints.
+
+**Companion cards.** `ncr-counterpoint-api-reference` § "Ecommerce surface — Counterpoint as omnichannel hub", `garden-center-operating-reality` § "The omnichannel reality".
+
+### L3 processes
+
+| ID | L3 process | Substrate | Notes |
+|---|---|---|---|
+| S.6.1 | eCommerce control read at tenant bootstrap | `GET /EC` | EC_CTL config; cached 24h → TBD: L4 implementation detail pending |
+| S.6.2 | eCommerce category hierarchy ingestion | `GET /ECCategories` | EC_CATEG; parallel to Item categories (may share or diverge per tenant) → TBD: L4 implementation detail pending |
+| S.6.3 | Per-item EC flag surfacing | `IM_ITEM.IS_ECOMM_ITEM`, `ECOMM_LST_PUB_STAT`, `ECOMM_TXBL_*`, `ECOMM_NEW`, `ECOMM_ON_SPECL`, `ECOMM_CHRG_FRT`, `ECOMM_DISC_ON_SAL`, `ECOMM_ITEM_IS_DISCNTBL` | The full EC field set per item → TBD: L4 implementation detail pending |
+| S.6.4 | EC-inventory snapshot | `GET /Inventory/EC` | Separate from physical-store inventory state (held-for-fulfillment subset) → TBD: L4 implementation detail pending |
+| S.6.5 | HTML description surfacing | `EC_ITEM_DESCR.HTML_DESCR` | Storefront display content; S surfaces, doesn't curate → TBD: L4 implementation detail pending |
+| S.6.6 | EC publish-state-machine tracking | `ECOMM_NXT_PUB_UPDT` / `ECOMM_NXT_PUB_FULL` / `ECOMM_LST_IMP_TYP` | Substrate for monitoring sync failure (which Q.eCommerce-monitoring rules consume) → TBD: L4 implementation detail pending |
+
+### User stories
+
+- *As S, I want every item's EC publish state surfaced so Q can monitor for stuck-in-publishing items (which sometimes indicate a broken eCommerce sync — a known pain pattern in the user-pain-points wiki).*
+- *As an Operator monitoring an omnichannel garden-center tenant, I want a per-tenant EC sync health dashboard showing items pending publish, items with publish failures, and items with EC-vs-physical inventory mismatches.*
+- *As Owl, I want to answer "how is online performing vs in-store this season" by joining Document `EC` flags through to S's per-item EC attribution.*
+
+## S.7 — Cross-module substrate contracts
+
+**Purpose.** S supplies catalog substrate to nearly every other spine module. This L2 is the contract registry — what fields, what preservation rules, what freshness commitments. Symmetric to T.7 / R.6 / J.8b.
+
+### L3 contracts (registry)
+
+| ID | Contract | Owner downstream | What S promises |
+|---|---|---|---|
+| S.7.1 | `IM_ITEM` field-set preservation | T (item-ref join), Q (margin context), J (forecast context) | Every Item field surfaced verbatim; no normalization of attribute or descriptor fields → TBD: L4 implementation detail pending |
+| S.7.2 | Category margin targets on every item join | Q (Q-ME-01) | `MIN_PFT_PCT` + `TRGT_PFT_PCT` joined to every transaction line at parse time → TBD: L4 implementation detail pending |
+| S.7.3 | Mix-and-match group identity | Q (Q-MM-01, Q-MM-02), P (bundle pricing observations) | `MIX_MATCH_COD` exposed per item; bundle-membership table queryable → TBD: L4 implementation detail pending |
+| S.7.4 | Fractional unit conversion factors | T (line surface), D (inventory deduction), Owl (analytics rollup) | `STK_UNIT`, `PREF_UNIT_NUMER/DENOM/NAM` available per item → TBD: L4 implementation detail pending |
+| S.7.5 | Multi-name field convention per tenant | Owl (multi-language search), C (B2B catalog views) | Per-tenant convention captured at onboarding; surfaced via metadata table → TBD: L4 implementation detail pending |
+| S.7.6 | Item lifecycle signals | J (replenishment exclusion for retired), Q (drift-tolerance in margin rules) | `STAT` + drift-suspicion flag → TBD: L4 implementation detail pending |
+| S.7.7 | EC publish state | Q (sync-monitoring), Owl (omnichannel performance queries) | Per-item EC flag set + state-machine values surfaced → TBD: L4 implementation detail pending |
+| S.7.8 | Vendor-item linkage | J (supplier scorecard) | `IM_VEND_ITEM` available without re-call to Counterpoint → TBD: L4 implementation detail pending |
+| S.7.9 | Per-location item attribution | D (per-location inventory), J (per-location forecast) | `Items_ByLocation` materialized into CRDM, not re-fetched per query → TBD: L4 implementation detail pending |
+| S.7.10 | Category-history-of-assignment | J (plan-vs-actual across hierarchy reorgs), P (seasonal-plan continuity) | Effective-dated category assignments per item → TBD: L4 implementation detail pending |
+| S.7.11 | Cache-discipline metadata | All | `last_polled_at` per item-cache entity so consumers can suppress stale-substrate alerts (mirrors Q.1 freshness contract) → TBD: L4 implementation detail pending |
+
+### User stories
+
+- *As S, I want every contract in S.7 enforced via the contract test suite — adding a third POS adapter requires it to surface every S.7 field or it doesn't pass conformance.*
+- *As Q, I want to assert at boot that S surfaces all contracted fields including `MIN_PFT_PCT` and mix-and-match group identity, so a silent S contract break shows up at startup not at first detection-miss.*
+- *As J, I want vendor-item linkage on every item record so my recommendation generation never blocks waiting for a separate VendorItem call.*
+
+## Canary Detection Hooks
+
+| S Process | → Detection Surface | Signal Description |
+|---|---|---|
+| S.3 (Space utilization anomaly) | Q-IS rule family | Persistent out-of-stock in a planogram position (SKU allocated but zero SOH) is an accumulation signal for Q-IS shrink investigation |
+| S.4 (Sales velocity by display) | Q-DM rule family | Unexpected velocity spikes in a specific display position (e.g., end-cap) not correlated with a promotion feed Q-DM-03 discount/manipulation detection |
+| S.5.2 (Owl eCommerce integration) | Owl investigator surface | S.5.2 data surfaces in Owl's eCommerce investigation view. Explicitly: S feeds Owl's range-vs-online-availability display (investigator-surface L2), not a Chirp rule input |
+
+## Additional User Stories
+
+- *As a loss prevention analyst using Owl, I need to see which planogram positions are chronically out-of-stock relative to online availability so I can identify potential diversion at the display level.*
+
+## Assumptions requiring real-customer validation
+
+| ID | Assumption | What it blocks | Resolution path |
+|---|---|---|---|
+| ASSUMPTION-S-01 | Counterpoint Item endpoint full field-set — sample-derived schema may miss attribute/descriptor fields specific to L&G | S.1.1 completeness; downstream substrate contracts | Sandbox DB schema inspection |
+| ASSUMPTION-S-02 | `IS_ECOMM_ITEM` semantic — does it gate the item from EC entirely or just the publish state | S.6.3 surface decisions | Sandbox EC test |
+| ASSUMPTION-S-03 | Category margin targets actually tuned per customer or default values from API | S.2.3 (Q-ME-01 threshold realism) | Tenant onboarding observation |
+| ASSUMPTION-S-04 | Mix-and-match bundle pricing rule storage — whether bundle target price lives on item, separate config, or computed at sale time | S.3.2 substrate path; Q-MM-01 bundle margin computation | Sandbox + sample Document with mix-match bundle |
+| ASSUMPTION-S-05 | Fractional-unit conversion fields complete — `STK_UNIT`, `PREF_UNIT_*` cover all item types | S.4 entire L2 | Sandbox + variety of item types (plants, bulk, fertilizer, hard goods) |
+| ASSUMPTION-S-06 | Serial-number tracking active for L&G vertical — likely rare except for high-value perennials | S.1.5/S.1.6 priority | Customer interview |
+| ASSUMPTION-S-07 | Multi-name plant convention — which `ADDL_DESCR_N` or `ATTR_COD_N` slot holds botanical / Spanish / common (varies per customer / VAR) | S.5.2 entire L3; multi-language Owl search | **Per-customer at onboarding** — engagement-knowable, not platform-knowable |
+| ASSUMPTION-S-08 | Item-status code list — `STAT='D'` for discontinued assumed; full enum unknown | S.5.5 retired-item handling | Sandbox DB inspection |
+| ASSUMPTION-S-09 | Rapid POS proprietary item-side extensions — custom fields beyond stock 5×4 profile slots | S.1 + S.5 substrate completeness | Direct conversation with Rapid POS / customer |
+| ASSUMPTION-S-10 | EC publish-state machine values — full enum of `ECOMM_NXT_PUB_*` | S.6.6 monitoring rules | Sandbox EC workflow test |
+| ASSUMPTION-S-11 | Category hierarchy reorganization frequency — customer-specific operational decision | S.2.4 (effective-dated category assignments) priority | Customer onboarding observation |
+
+**Highest-leverage gaps:** S-04 (mix-and-match bundle pricing storage) and S-07 (multi-name plant convention). S-04 is the load-bearing assumption for Q-MM-01 + the entire S.3 L2. S-07 is the load-bearing assumption for the multi-language Owl search experience and is engagement-knowable only — every customer is unique.
+
+## Customer-specific overrides
+
+*Empty until a real customer engagement starts. Format reserved:*
+
+```
+Customer: <name>
+Multi-name field convention:
+  ADDL_DESCR_1 → <botanical | Spanish | common | other>
+  ADDL_DESCR_2 → <...>
+  ADDL_DESCR_3 → <...>
+  ATTR_COD_1 → <...>
+  ATTR_COD_2 → <...>
+Mix-and-match bundle pricing storage: <where bundles' target prices live>
+Fractional-unit categories actively used: [perennials, bulk soil, fertilizer, ...]
+Per-category margin targets (overrides to API defaults):
+  <CATEG_COD>: MIN=<%>, TRGT=<%>
+EC platform: <NCR Retail Online | Shopify connector | IceSync | DIY | none>
+EC inventory model: <held-for-fulfillment | shared-with-physical | other>
+Rapid POS proprietary extensions in scope: <field list | none>
+Disabled S.x processes (with reason):
+  S.x.x: <reason>
+ASSUMPTION resolutions:
+  ASSUMPTION-S-NN: resolved as <answer>; source: <evidence>
+  ...
+```
+
+## Operating notes
+
+**Cast of actors:**
+
+| Actor | Role | Lives where |
+|---|---|---|
+| Catalog Ingester | S's poll-driven sync service | Canary-internal (S.1) |
+| Category-Tree Maintainer | Hierarchy + margin-target sync | Canary-internal (S.2) |
+| Mix-Match Group Resolver | Bundle-membership lookup service | Canary-internal (S.3) |
+| Fractional-Unit Converter | Unit math service | Canary-internal (S.4) |
+| EC Publish Monitor | Per-item EC state tracker | Canary-internal (S.6) |
+| Operator | Catalog-config + onboarding | Canary side |
+| Owl / Fox | Analyst-facing surface | Canary-internal |
+| Garden-Center GM | Catalog and margin queries | Customer side |
+
+**S is the most vertical-distinctive substrate module.** Three full L2 areas (S.3 mix-and-match, S.4 fractional units, S.5 lifecycle/drift) exist because L&G retail demands them. A non-garden vertical pack would re-shape these — a gun-store pack would emphasize serial-number tracking (S.1.5/S.1.6) and ATF-compliance category attributes; a wine pack would emphasize vintage and varietal attributes via the same `ADDL_DESCR_*` slots with different conventions.
+
+**The category-margin-target contract (S.7.2) is the load-bearing producer-side bridge to Q.** Q.2.6 (margin-erosion) and Q-ME-01 specifically depend on category targets being inline on every item join. This is the highest-frequency contract S delivers — every transaction line carries it.
+
+**The multi-name plant convention (S.5.2 + S.7.5) is engagement-knowable only.** Platform-level discovery cannot resolve which slot means what — every customer has unique conventions. Capture at onboarding, audit at customer review, never assume across customers.
 
 ## Related
 
-- [[../platform/stock-ledger|Stock Ledger — The Perpetual-Inventory Movement Ledger]]
-- [[../platform/retail-accounting-method|Retail Accounting Method — RIM, Cost Method, Open To Buy]]
-- [[../platform/spine-13-prefix|The Canary Retail Spine — 13 Modules]]
-- [[../../GrowDirect/Brain/wiki/intactix-canonical-validation|Intactix 2006 — Canonical Validation of RetailSpine]]
-- [[../../GrowDirect/Brain/wiki/tesco-technical-library|Tesco Technical Library — The Third Canonical Layer]]
-- [[../../GrowDirect/Brain/wiki/third-branch|The Third Branch]]
-- [[../../GrowDirect/Brain/wiki/srd-shelf-edge-label|Shelf-Edge Label Compilation and Delivery]]
-- [[C-commercial|C (Commercial)]]
-- [[D-distribution|D (Distribution)]]
-- [[J-forecast-order|J (Forecast & Order)]]
-- [[P-pricing-promotion|P (Pricing & Promotion)]]
-- [[W-work-execution|W (Work Execution)]]
-
-## Sources
-
-- [[../../GrowDirect/Brain/wiki/intactix-canonical-validation|Intactix Enterprise Suite 2006.2.0 Integration Guides (5 documents)]]
-- [[../../GrowDirect/Brain/wiki/tesco-technical-library|Tesco Technical Library Functional Specification V1.0 and Integration Guides]]
-- [[../../GrowDirect/Brain/wiki/srd-shelf-edge-label|Fresh & Easy / Tesco SRD Architecture (323 files, 30+ S-prefix interface specifications)]]
-- [[../../GrowDirect/Brain/wiki/third-branch|The Third Branch — Operating lineage and three-canonical framing]]
-
----
-
-*Classification: confidential. Owner: GrowDirect LLC. Created 2026-04-24. S (Space, Range, Display) is a v3 module spec within the Canary Retail Spine. It is design-stage; implementation is deferred pending v2 ring (C/D/F/J) stabilization.*
+- `Canary-Retail-Brain/modules/S-space-range-display.md` — L1 canonical spec
+- `canary-module-s-space-range-display.md` — L2 Canary code/schema crosswalk
+- `canary-module-q-functional-decomposition.md` — sister card; S.2.3 + S.7.2 (margin targets) + S.3 (mix-and-match) + S.5 (drift) drive Q rule families
+- `canary-module-t-functional-decomposition.md` — sister card; T's transaction-line parse needs S's item context (T.7.8 contract)
+- `canary-module-r-functional-decomposition.md` — sister card; R's tier-aware allow-lists join through S categories
+- `canary-module-j-functional-decomposition.md` — sister card; J's like-item forecasting and vendor-scorecard depend on S.2 + S.7.8
+- `ncr-counterpoint-api-reference.md` — full Item / Inventory / EC family detail
+- `ncr-counterpoint-endpoint-spine-map.md` — per-endpoint × CRDM × spine map for Item family
+- `ncr-counterpoint-rapid-pos-relationship.md` — feature-to-API mapping (mix-and-match, fractional, multi-name)
+- `garden-center-operating-reality.md` — vertical reality (item-code drift, mid-season churn, multi-name conventions)
+- (CATz) `proof-cases/specialty-smb-counterpoint-solution-map.md` — S row = ● Full direct
+- (CATz) `method/artifacts/module-functional-decomposition.md` — the artifact template this card follows
