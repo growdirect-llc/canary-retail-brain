@@ -22,7 +22,7 @@ OUT    = Path(args.out)
 TITLE  = args.site_title
 
 SKIP_DIRS  = {'.git','.github','.obsidian','quartz','node_modules','_site','static'}
-SKIP_FILES = {'ACKNOWLEDGMENT.md','CONTRIBUTING.md','NOTICE.md','SECURITY.md','README.md'}
+SKIP_FILES = {'ACKNOWLEDGMENT.md','CONTRIBUTING.md','NOTICE.md','SECURITY.md','README.md','CLAUDE.md'}
 
 # ─── MARKDOWN CONVERTER ──────────────────────────────────────────────────────
 MD = md_lib.Markdown(extensions=[
@@ -237,7 +237,7 @@ def page_html(title, body_html, sidebar_html, breadcrumb_html, site_title, fm, n
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{htmllib.escape(title)} · {htmllib.escape(site_title)}</title>
+<title>{htmllib.escape(title) + (' · ' + htmllib.escape(site_title) if title != site_title else '')}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
