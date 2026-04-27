@@ -92,3 +92,15 @@
   font-weight: 500;
   padding: 2px 10px;
 }
+
+// Mobile — hide explorer tree so content leads; search stays accessible
+@media (max-width: 768px) {
+  .explorer {
+    display: none !important;
+  }
+  // Right column panels are noise on phone
+  .graph-outer,
+  .backlinks {
+    display: none !important;
+  }
+}
