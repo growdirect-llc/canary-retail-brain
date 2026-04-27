@@ -12,7 +12,7 @@ import yaml
 
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 p = argparse.ArgumentParser()
-p.add_argument("--site-title", default="Canary for NCR Counterpoint")
+p.add_argument("--site-title", default="Canary Retail Brain")
 p.add_argument("--out", default="_site")
 p.add_argument("--root", default=".")
 args = p.parse_args()
@@ -83,7 +83,7 @@ def build_sidebar(pages, current_rel):
     for rel, fm, title in pages:
         parts = rel.parts
         group = parts[0] if len(parts) > 1 else '.'
-        groups.setdefault(group, []).append((rel, title))
+        groups.setdefault(group, []).append((rel, fm, title))
 
     nav_order = get_nav_order(pages)
 
@@ -94,6 +94,13 @@ def build_sidebar(pages, current_rel):
             return (nav_order.index(g), g.lower())
         return (len(nav_order) + 1, g.lower())
 
+    def item_sort_key(item):
+        rel, fm, title = item
+        order = fm.get('nav_order')
+        if isinstance(order, int):
+            return (order, str(rel).lower())
+        return (9999, str(rel).lower())
+
     html = ['<nav class="sb-nav">']
 
     # Home link
@@ -101,11 +108,11 @@ def build_sidebar(pages, current_rel):
     html.append(f'  <a href="/" class="sb-home{home_active}">Home</a>')
 
     for group in sorted(groups.keys(), key=sort_key):
-        items = groups[group]
+        items = sorted(groups[group], key=item_sort_key)
         group_label = group.replace('-',' ').replace('_',' ').title() if group != '.' else 'Pages'
         if group == '.':
             # Root files — show inline without group header
-            for rel, title in items:
+            for rel, fm, title in items:
                 if rel.name in ('Home.md', 'index.md'):
                     continue
                 href = '/' + str(rel.with_suffix('.html'))
@@ -114,7 +121,7 @@ def build_sidebar(pages, current_rel):
         else:
             html.append(f'  <div class="sb-group">')
             html.append(f'    <span class="sb-lbl">{group_label}</span>')
-            for rel, title in items:
+            for rel, fm, title in items:
                 href = '/' + str(rel.with_suffix('.html'))
                 active = ' on' if rel == current_rel else ''
                 # shorten title for sidebar
