@@ -232,6 +232,9 @@ def build_top_nav_links(pages):
 def page_html(title, body_html, sidebar_html, breadcrumb_html, site_title, fm, nav_links='', rel_url='', description=''):
     if not description:
         description = fm.get('description') or 'Canary Retail Brain — the 13-module ARTS-native retail spine for SMB multi-store operators on NCR Counterpoint.'
+    canonical_url = rel_url
+    if canonical_url.endswith('index.html'):
+        canonical_url = canonical_url[:-10]  # strip 'index.html', keep folder slash
     date = fm.get('date','')
     meta = f'<div class="page-meta">{htmllib.escape(str(date))}</div>' if date else ''
     return f"""<!doctype html>
@@ -249,7 +252,7 @@ def page_html(title, body_html, sidebar_html, breadcrumb_html, site_title, fm, n
 <meta property="og:title" content="{htmllib.escape(title)}">
 <meta property="og:description" content="{htmllib.escape(description)}">
 <meta property="og:image" content="https://crb.growdirect.io/static/canary-icon-512.png">
-<meta property="og:url" content="https://crb.growdirect.io/{rel_url}">
+<meta property="og:url" content="https://crb.growdirect.io/{canonical_url}">
 <meta property="og:site_name" content="{htmllib.escape(site_title)}">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="{htmllib.escape(title)}">
