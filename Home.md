@@ -3,108 +3,51 @@ classification: confidential
 owner: GrowDirect LLC
 ---
 
-# Canary Retail
+# Canary runs the loops. The merchant runs the store.
 
-GrowDirect LLC's retail operating system for small and mid-sized
-specialty retailers with online footprint.
+Canary is the retail operating system where agents run the operational machinery — receiving, replenishment, three-way match, inventory, sales audit, loss prevention, KPI surfacing — continuously. Merchants step in for three things only: strategic decisions, signing authority on financial deviations, and customer-facing work. Everything else closes itself.
 
-## Platform
+## The bar
 
-- [[platform/overview]] — positioning, audience, what's different
-- [[platform/spine-13-prefix]] — the module spine (C/D/F/J/S/P/T/R/N/L/Q/W/A)
-- [[platform/crdm]] — canonical retail data model (People × Places
-  × Things × Events × Workflows)
-- [[platform/arts-adoption]] — POSLog, Customer, Device, Site
-  standards alignment
-- [[platform/differentiated-five-add-on]] — T+R+N+A+Q (the add-on
-  layer that distinguishes Canary Retail on top of retail baseline)
+Three accountability rails. Every entity has a meter. The graph is closed.
 
-## Substrate (financial-accounting layer the spine sits on)
+- **Operational — no unknown loss.** Shrink stops being a black box. Every event that contributes to it is captured, classified, and traceable to a specific store, employee, vendor, or device. The shrink number becomes the sum of explained events instead of an unexplained line item at year-end.
+- **Financial — no unauthorized spend.** Open-to-buy is a funded wallet, not a number in a spreadsheet. Commitments draw against the wallet at the moment of action; overspend is mathematically prevented, not policy-prohibited. Every dollar a merchant spends has a receipt the merchant owns.
+- **Evidentiary — no unanchored record.** Every receipt, every case, every chargeback claim is hash-anchored. An auditor, an insurer, a lender, or a court can verify the chain without trusting the merchant — or trusting Canary.
 
-- [[platform/stock-ledger]] — perpetual-inventory movement ledger;
-  the integrity surface every module communicates across
-- [[platform/retail-accounting-method]] — RIM vs Cost Method, Open
-  To Buy as the planning constraint
-- [[platform/satoshi-cost-accounting]] — sub-cent unit cost as
-  Canary's innovation; closes the 2002-vintage two-decimal gap
-- [[platform/satoshi-precision-operating-model]] — the **top-down
-  precision commitment**: extends satoshi precision from COGS to
-  Customer Acquisition Cost + SG&A + IoT-tracked movement events.
-  Every cost decomposed to its originating event with audit trail.
-  Unifies the 13-module spine as instruments of cost decomposition.
-- [[platform/perpetual-vs-period-boundary]] — the staged migration
-  story: Phase 1 Canary runs in parallel observer mode (zero
-  adoption friction); Phase 2 the merchant cuts over modules to
-  Canary one at a time at their own pace; Phase 3 the stock ledger
-  itself swaps to Canary as system of record (the moat). Until the
-  ledger swap, every module is independently cutoverable and
-  reversible. `integrated-hybrid` is the default route for every
-  spine module. Established by [[case-studies/canary-finance-architecture-options|v2.F ADR]].
+## What the merchant gets back
 
-## Modules — full 13-module spine
+> *Run the store again.*
 
-**v1 — Differentiated-Five (shipping):**
+Walk the floor. Talk to customers. Make the strategic calls — what to carry, what to cut, what to invest in for the season. Sign on the financial decisions that matter. The platform handles the operational load that used to consume the day.
 
-- [[modules/T-transaction-pipeline]] — POS-agnostic ingestion; seal → parse → merkle → detect; ledger PUBLISHER (sale verb)
-- [[modules/R-customer]] — ARTS Customer Model; identity layer + external_identities scaffold
-- [[modules/N-device]] — ARTS Device Model; every device as first-class asset
-- [[modules/A-asset-management]] — Bubble (anomaly detection over device population)
-- [[modules/Q-loss-prevention]] — Chirp (37-rule detection) + Fox (INSERT-only case mgmt)
+This is what the four-beat outcome describes:
 
-**v2 — CRDM expansion (design complete):**
+1. **Stays on track** — accountability without overhead. Plans are wallets the agents respect; variance surfaces before quarter-close, not after.
+2. **Meets customers where they're going** — local market intelligence at the geography of the store, in real time.
+3. **Operates above weight class** — agent network carries the analytical and operational work that would otherwise need a department.
+4. **Gets back to running the store** — the merchant becomes a merchant again, not the operator of operational machinery.
 
-- [[modules/C-commercial]] — items, departments, suppliers, OTB; ledger PUBLISHER (cost-update events)
-- [[modules/D-distribution]] — receipts, transfers, RTVs; PRIMARY ledger PUBLISHER (6 verbs)
-- [[modules/F-finance]] — PO/invoice 3-way match, RIM/Cost choice, period close; ledger RECONCILER + PUBLISHER (GL)
-- [[modules/J-forecast-order]] — demand forecast + replenishment; ledger SUBSCRIBER + PUBLISHER (orders)
+## Where to go from here
 
-**v3 — Full spine (design complete):**
+| Section | Read this if you want to know |
+|---|---|
+| [Why](why/why) | Why the platform exists, the three rails, the meter model |
+| [How to engage](modes/modes) | The five engagement modes — operating system, transformation, audit, channel, internal — and which one fits |
+| [Experience](experience/experience) | What it looks like in your role: merchant, store manager, LP investigator, vendor, auditor |
+| [Modules](modules/modules) | The 13-module spine that runs the operational loops |
+| [Platform](platform/overview) | The architecture: Canonical Retail Data Model, Receipt as a Service, agent topology, Bitcoin standard substrate |
+| [Engineering](engineering/nfrs) | NFRs, scale, security, compliance posture for the IT partner |
+| [Proof](proof/proof) | Worked examples, benchmarks, dogfooding posture |
 
-- [[modules/S-space-range-display]] — planogram, fixtures, shelf-edge labels; ledger SUBSCRIBER + GATEKEEPER (ordering gate)
-- [[modules/P-pricing-promotion]] — promotion engine, markdowns, elasticity; ledger PUBLISHER (price/markdown events)
-- [[modules/L-labor-workforce]] — scheduling, time tracking, productivity; ledger PUBLISHER (time entries) + SUBSCRIBER
-- [[modules/W-work-execution]] — generalizes Q's Chirp+Fox to whole spine; ledger RECONCILER + cross-domain analyzer
+## What this is not
 
-**Module manifests** (machine-readable companions): see [[platform/module-manifest-schema]]. First example: `modules/T-transaction-pipeline.manifest.yaml`.
+This is not a marketing site for a product that doesn't exist yet. It is the working surface of the platform we are building, in production, in public, with verifiable receipts. Some sections describe architectural direction (clearly marked); most describe what runs today.
 
-## Integrations
+This is not a comprehensive replacement for SAP or Oracle Retail. It is the platform a $5M to $50M private retailer can run on without an enterprise IT department, an enterprise consulting engagement, or an enterprise budget — and that scales when they grow.
 
-- `integrations/pos-adapters.md` — Square (live), future: Lightspeed,
-  Clover, NCR, RAPID
-- `integrations/payments.md`
-- `integrations/ecommerce.md`
-- `integrations/security-hardware.md`
-- `integrations/mdm-and-itam.md`
+This is not a Bitcoin retail product. The platform uses cryptographic primitives (SHA-256 chain anchoring, optionally Lightning settlement and Bitcoin L2 evidence anchoring) where they earn their place — not for ideology. Every Bitcoin / Lightning feature is opt-in. The platform operates correctly with all of them disabled.
 
-## Architecture
+---
 
-- [[architecture/service-mesh]]
-- [[architecture/tsp-pipeline]]
-- [[architecture/detection-engine]]
-- [[architecture/case-management]]
-- [[architecture/evidence-chain]]
-
-## Case studies (abstracted)
-
-- `case-studies/smb-specialty-archetype.md`
-- `case-studies/multi-store-apparel.md`
-- `case-studies/food-and-beverage.md`
-- `case-studies/sporting-goods.md`
-- `case-studies/mlm-direct-selling.md`
-
-## Persona — the Virtual Store Manager (VSM)
-
-- `.claude/skills/canary-vsm.md` — composed agent persona that knows the entire 13-module spine via the existing Owl runtime. v1 Owl speaks T/R/N/Q today; gains modules as they ship. The merchant's single conversational front door.
-- [[platform/module-manifest-schema]] — the machine-readable manifest format every module ships alongside its prose `.md`; the executable spec the VSM and orchestrator read
-
-## Roadmap
-
-- [[roadmap/v1-differentiated-five]] — T+R+N+A+Q shipping
-- [[roadmap/v2-crdm-expansion]] — C/D/F/J modules (design complete; implementation pending)
-- [[roadmap/v3-full-spine]] — S/P/L/W (design complete; implementation deferred until v2 stabilizes)
-
-## Siblings
-
-- `~/CATz/` — Canary Agent Taskforce: GrowDirect's methodology
-  vault (how GrowDirect designs and delivers — agent-native)
-- `~/GrowDirect/Canary/` — product code
+*The platform is GCP-native, Go-implemented, multi-tenant by design, SOC 2 / ISO 27001 day-one architecture. See [Engineering](engineering/nfrs) for the technical posture.*

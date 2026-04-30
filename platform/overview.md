@@ -4,133 +4,89 @@ owner: GrowDirect LLC
 type: platform-overview
 ---
 
-# Canary Retail — Platform Overview
+# Platform overview
 
-Canary Retail is a retail operating system for small and mid-sized
-specialty retailers with online footprint. POS-agnostic by
-architecture. ARTS-standards native. Multi-tenant SaaS. It is
-deployed against a canonical retail data model and extended through
-a module spine that covers the full retail operating surface.
+Canary is a retail operating system for private SMB and mid-market specialty retailers — typically $5M to $50M annual sales, multi-store but not enterprise — that don't have the budget or the staff for an enterprise stack but need the operational discipline that's been available to enterprise retailers for thirty years.
 
-## Who it's for
+The platform is POS-agnostic: Square in V1, NCR Counterpoint as the primary commercial channel, additional POS platforms via the multi-POS adapter substrate.
 
-Specialty retailers from ~3 to ~300 stores, with an ecommerce or
-direct-to-consumer channel, operating on a POS they didn't build
-and probably can't replace this year. The segment that:
+## Architecture in one paragraph
 
-- Needs more than a POS but less than a full enterprise retail
-  suite.
-- Has real operational complexity (multi-channel, multi-location,
-  inventory decisions, labor scheduling) and no central operational
-  platform beneath it.
-- Can't run a 12-month transformation engagement with a Big 4; can
-  run a compressed version with GrowDirect.
+Every retail event flows through a hash-anchored receipt chain. The chain is the source of truth — not the POS database, not the merchant's spreadsheet, not the buyer's memory. Every other system in the platform is a consumer of, or a contributor to, this chain. The chain is required core; everything else is extension.
 
-Concrete vertical patterns: multi-store apparel, food & beverage
-specialty, sporting goods, direct-selling / MLM channels with a
-storefront presence.
+## The architectural primitives
 
-## What it ships
+### Receipt as a Service (RaaS) — the chain backbone
 
-Canary Retail is not a point solution. It is a platform with a
-module catalog. The module spine has thirteen positions
-(C/D/F/J/S/P/T/R/N/L/Q/W/A). At v1, Canary ships the
-**Differentiated-Five** (T+R+N+A+Q) — the modules nobody else
-productizes or productizes poorly:
+Every meaningful retail event becomes a receipt: a POS sale, a return, a void, a DC receiving confirmation, a three-way match, a vendor payment, a planogram change, an inventory adjustment. Each receipt is hashed (SHA-256 of canonical JSON), sequenced within the merchant's namespace, and chained — each event's hash includes the prior event's hash, making the chain tamper-evident.
 
-- **T — Transaction Pipeline.** POS-agnostic ingestion (webhook-
-  first), seal → parse → merkle → detect. Hash-chained evidence
-  from intake onward.
-- **R — Customer.** ARTS Customer Model. Unified customer entity
-  across POS, ecommerce, and service channels.
-- **N — Device.** ARTS Device Model. Every POS terminal, scanner,
-  camera, and IoT device as a first-class tracked asset.
-- **A — Asset Management.** Bubble — threat detection over the
-  asset registry, per-store anomaly detection.
-- **Q — Loss Prevention.** Detection engine + case management.
-  Real-time rule evaluation against the transaction stream; cases
-  with append-only evidence timelines.
+The chain is the platform's evidentiary backbone. Every KPI, every audit, every dispute traces to it.
 
-Other modules ship on the v2 and v3 roadmaps (see
-[[../roadmap/v2-crdm-expansion]] and [[../roadmap/v3-full-spine]]).
+→ [Stock Ledger](stock-ledger) — the perpetual-inventory movement ledger that everything else cross-references
 
-## What makes it different
+### Canonical Retail Data Model (CRDM) — the data substrate
 
-1. **ARTS-standards native.** POSLog, Customer, Device, Site
-   models adopted as the runtime schema — not an integration veneer.
-2. **POS-agnostic by architecture.** Square is the first connector,
-   not the core dependency. Canonical model is the source of truth;
-   POS adapters are translation layers.
-3. **CRDM abstraction.** People × Places × Things × Events ×
-   Workflows. One model underlies every module. A retail store and
-   an HOA parcel are architecturally the same entity — physical
-   location + assets + people + governance + exceptions. The same
-   CRDM supports both commercial and non-commercial expressions.
-4. **Multi-tenant from v1.** No single-tenant fork. Multi-tenancy is
-   a property of the schema and session, not a deployment toggle.
-5. **Agent-native.** Every module has an agent mesh backing its
-   tooling. Memory-bus-backed recall. Chirp+Fox generalizable to
-   W (Work Execution) for any domain.
-6. **Evidence-first.** Hash-chained from webhook intake through
-   case timeline. Compliance posture is designed in, not added.
+The CRDM is the platform's POS-agnostic data model. It maps every supported POS's native data into a canonical shape that every downstream service operates on. A Square Payment, a Counterpoint document, and a Shopify order all become the same canonical event after the adapter normalizes them.
 
-## The SMB collapse — what the evidence shows
+The CRDM is ARTS-aligned (Association for Retail Technology Standards) — POSLog, Customer, Device, Site standards — making interop with vendor-published schemas predictable.
 
-Canary Retail's platform thesis is that the classical enterprise
-retail decomposition (distinct catalog hub, pricing engine, cart,
-checkout, subscription, inventory, tax, shipping, fulfillment, and
-POS systems) compresses into one operational app for SMB specialty
-retailers — without losing capability.
+→ [CRDM](crdm) — the canonical model in detail
+→ [ARTS adoption](arts-adoption) — standards alignment
 
-The evidence is [[worked-example-solex|a live worked example]]: a
-minimal, single-merchant, single-channel e-commerce reference
-running against a real payment processor, observed end-to-end by
-Canary Retail's detection engine. Coverage assessment across the
-canonical retail capability surface produces three observations:
+### Multi-POS adapter substrate — the integration seam
 
-1. **Multi-Channel and Corporate Finance compress cleanly.** A
-   single well-built e-commerce app gives you nearly the full
-   canonical report set for both. The enterprise reference assumed
-   call-center + catalog division-of-labor; in SMB, the e-commerce
-   app is the channel, and the order is the financial transaction.
-2. **Customer compresses well.** Authenticated customers + order
-   history + subscription state covers most Customer capabilities.
-   The gaps (credit risk, delinquency, lead, market) are gaps the
-   payment processor handles or that don't apply at SMB scale.
-3. **Merchandising and Store Ops are where the missing
-   operational schemas surface.** The gaps in Merchandising
-   (multi-location inventory, on-order, planogram, assortment-
-   allocation) and Store Ops (vendor, staffing, multi-store) are
-   exactly the gaps that [[spine-13-prefix|the Canary Retail module
-   spine]] closes — and they're precisely the gaps that motivate
-   the non-Differentiated-Five modules (C / D / F / J / S / P /
-   L / W).
+Every POS integration — current (Square, Counterpoint) and future — is implemented as an adapter that satisfies a contract: receive events from the source, normalize to the canonical schema, emit into the receipt chain. Downstream services never know which POS produced an event.
 
-**The corollary.** An SMB doesn't need a separate system for each
-gap. A single well-modeled operational app populates ~70% of the
-capability surface. The remaining 30% is either out-of-scope for
-SMB scale, processor-handled, or addressable by extending the same
-operational schema rather than building a separate system. That's
-the platform.
+Adding a new POS does not require platform changes. It requires adapter code.
 
-## Positioning against alternatives
+### Architectural continuity — the six properties
 
-- **Against a POS** — Canary Retail sits above the POS, not instead
-  of it. A retailer keeps Square (or whatever they're on); Canary
-  adds the operating tier on top.
-- **Against an enterprise retail suite** — Canary Retail is sized
-  for SMB specialty. It ships only what SMBs need. It doesn't ship
-  an ERP, a WMS, or a dedicated merchandising tool — it provides
-  the canonical model those categories plug into if the retailer
-  needs them.
-- **Against a point solution (just LP, just analytics, etc.)** —
-  Canary Retail is a platform. A retailer adopting it starts with
-  the Differentiated-Five and grows into the rest of the spine.
+Canary's architecture is a composition of proven distributed-systems primitives applied to the retail evidence problem. Statelessness, idempotency, federation, content addressability, layered abstraction, and cryptographic verification — the same primitives that make TCP/IP, SMTP, HTTP, and Bitcoin scale.
+
+We are not inventing new concepts at the protocol layer; we are composing old ones for a new use case. The novelty is in the composition and the application, not the underlying ideas.
+
+→ [Architectural Continuity](platform-architectural-continuity) — the six properties and the continuity table
+
+### Stack commitment — vendor posture
+
+GCP-native end to end. Single primary cloud. Eight specialist SaaS for plumbing (Stripe, SendGrid, Twilio, Retool, Metabase, Sentry, Mintlify, OrdinalsBot). The discipline: anything not core IP or pure retail-domain logic gets bought, not built.
+
+→ [Stack Commitment](platform-stack-commitment) — vendor commitment, why GCP, why not AWS
+
+### Cryptographic erasure — privacy + integrity
+
+Per-subject encryption keys for PII fields in append-only tables. To erase a customer's data under GDPR Article 17, the platform destroys their key. The ciphertext remains in the immutable table — but it is now unreadable. The chain integrity is intact; the personal data is gone.
+
+This is the canonical answer for any system that combines integrity guarantees with privacy obligations.
+
+→ [Cryptographic Erasure](platform-cryptographic-erasure) — the per-subject DEK pattern
+
+### Worked example — Solex
+
+A working single-store retail implementation that exercises the platform's cart-and-checkout invariants, inventory model, and event flow. Solex is illustrative — it shows what the operational primitives look like in a working system. The platform generalizes those primitives to multi-channel, multi-location, multi-POS scale.
+
+→ [Worked Example — Solex](worked-example-solex)
+
+## What lives in `deep/`
+
+Deeper technical content — for engineers, architects, and partners doing detailed integration design. Not required for a CIO read.
+
+| Topic | Pointer |
+|---|---|
+| The 13-letter spine and module dependency graph | [spine-13-prefix](deep/spine-13-prefix) |
+| Differentiated Five — the V1 module set | [differentiated-five-add-on](deep/differentiated-five-add-on) |
+| Phase migration from legacy POS to Canary as system of record | [perpetual-vs-period-boundary](deep/perpetual-vs-period-boundary) |
+| Retail accounting method — RIM vs Cost, OTB as planning constraint | [retail-accounting-method](deep/retail-accounting-method) |
+| Module manifest schema — machine-readable module descriptors | [deep/module-manifest-schema](deep/module-manifest-schema) |
+| Satoshi cost accounting — sub-cent unit cost, optional Bitcoin standard | [deep/satoshi-cost-accounting](deep/satoshi-cost-accounting) |
+| Satoshi precision operating model — full-stack Bitcoin standard, architectural direction | [deep/satoshi-precision-operating-model](deep/satoshi-precision-operating-model) |
+
+## What's NOT here
+
+This site does not document the platform's IP-sensitive details — the multi-tier assortment routing model, the ILDWAC five-dimension cost model, the L402 + Lightning settlement protocol, the keyed-PII-hashing standard, the data classification inventory. Those are protected, internal-only, and disclosed under specific commercial agreements with audited partners. This site documents the architecture a CIO needs to evaluate the platform for engagement; the deeper IP is available under NDA.
 
 ## Related
 
-- [[spine-13-prefix]]
-- [[crdm]]
-- [[arts-adoption]]
-- [[differentiated-five-add-on]]
-- [[../architecture/service-mesh]]
+- [Why Canary](../why/why) — the why the architecture serves
+- [Modules](../modules/modules) — the operational module library running on this architecture
+- [Engineering posture](../engineering/nfrs) — NFRs, security, compliance
