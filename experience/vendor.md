@@ -1,6 +1,8 @@
 ---
 title: The Vendor
 classification: confidential
+nav_order: 5
+
 ---
 
 # The vendor

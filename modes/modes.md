@@ -1,6 +1,8 @@
 ---
 title: How to Engage with Canary
 classification: confidential
+nav_order: 1
+
 ---
 
 # How to engage with Canary

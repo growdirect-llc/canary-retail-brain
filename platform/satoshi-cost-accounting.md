@@ -5,6 +5,8 @@ type: platform-substrate
 owner: GrowDirect LLC
 classification: confidential
 tags: [satoshi-cost, micropayment, l402, lightning, sub-cent, unit-cost, canary-innovation]
+nav_order: 10
+
 ---
 
 # Satoshi-Level Cost Accounting — Sub-Cent Unit Cost on the Stock Ledger

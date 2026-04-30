@@ -1,6 +1,8 @@
 ---
 title: Channel — Build on Top
 classification: confidential
+nav_order: 5
+
 ---
 
 # Channel — Build on top

@@ -1,6 +1,8 @@
 ---
 title: The Merchant
 classification: confidential
+nav_order: 2
+
 ---
 
 # The merchant

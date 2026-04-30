@@ -2,6 +2,8 @@
 classification: confidential
 owner: GrowDirect LLC
 type: module-spine
+nav_order: 7
+
 ---
 
 # The Canary Retail Spine — 13 Modules

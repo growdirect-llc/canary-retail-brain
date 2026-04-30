@@ -2,6 +2,8 @@
 classification: confidential
 owner: GrowDirect LLC
 type: platform-overview
+nav_order: 1
+
 ---
 
 # Platform overview

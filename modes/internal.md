@@ -1,6 +1,8 @@
 ---
 title: Internal — Our Own Shop
 classification: confidential
+nav_order: 6
+
 ---
 
 # Internal — Our own shop

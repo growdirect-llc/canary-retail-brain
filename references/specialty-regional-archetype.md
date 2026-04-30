@@ -1,6 +1,8 @@
 ---
 title: Specialty Regional Retailer — ICP Archetype
 classification: confidential
+nav_order: 2
+
 ---
 
 # Specialty regional retailer — ICP archetype

@@ -7,6 +7,8 @@ layer: cross-cutting
 status: approved
 tags: [gdpr, ccpa, erasure, right-to-be-forgotten, encryption, append-only, raas, evidence-chain, key-destruction, dsar]
 last-compiled: 2026-04-29
+nav_order: 13
+
 ---
 
 ## What this is

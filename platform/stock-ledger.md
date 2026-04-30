@@ -5,6 +5,8 @@ type: platform-substrate
 owner: GrowDirect LLC
 classification: confidential
 tags: [stock-ledger, perpetual-inventory, substrate, ledger-verbs, invariants, conservation, cycle-count, retail-accounting]
+nav_order: 3
+
 ---
 
 # Stock Ledger — The Perpetual-Inventory Movement Ledger

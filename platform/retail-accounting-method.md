@@ -5,6 +5,8 @@ type: platform-substrate
 owner: GrowDirect LLC
 classification: confidential
 tags: [rim, retail-inventory-method, cost-method, otb, open-to-buy, merchandise-planning, accounting]
+nav_order: 8
+
 ---
 
 # Retail Accounting Method — RIM, Cost Method, Open To Buy

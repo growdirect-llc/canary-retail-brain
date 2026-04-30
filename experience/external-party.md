@@ -1,6 +1,8 @@
 ---
 title: The External Party — Auditor, Regulator, Lender, Insurer
 classification: confidential
+nav_order: 6
+
 ---
 
 # The external party

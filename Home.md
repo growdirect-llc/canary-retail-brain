@@ -1,6 +1,17 @@
 ---
 classification: confidential
 owner: GrowDirect LLC
+nav_order:
+  - why
+  - modes
+  - experience
+  - modules
+  - platform
+  - engineering
+  - proof
+  - references
+  - brain
+  - case-studies
 ---
 
 # Canary runs the loops. The merchant runs the store.

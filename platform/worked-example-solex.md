@@ -3,6 +3,8 @@ classification: confidential
 owner: GrowDirect LLC
 type: worked-example
 status: v0.3
+nav_order: 15
+
 ---
 
 # Worked Example — Solex E-commerce Reference

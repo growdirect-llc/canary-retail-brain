@@ -7,6 +7,8 @@ layer: cross-cutting
 status: approved
 tags: [stack, gcp, vendor, buy-vs-build, anti-amazon, no-hand-rolling, core-ip, saas, cloud-commitment, walmart-precedent]
 last-compiled: 2026-04-29
+nav_order: 12
+
 ---
 
 ## What this is

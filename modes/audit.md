@@ -1,6 +1,8 @@
 ---
 title: Audit / Health Check Mode
 classification: confidential
+nav_order: 4
+
 ---
 
 # Audit / Health Check

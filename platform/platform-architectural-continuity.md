@@ -7,6 +7,8 @@ layer: cross-cutting
 status: approved
 tags: [architecture, continuity, protocol, biztalk, smtp, http, bitcoin, mcp, idempotency, federation, primitives, defensibility, distributed-systems]
 last-compiled: 2026-04-29
+nav_order: 2
+
 ---
 
 ## What this is

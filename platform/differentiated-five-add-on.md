@@ -4,6 +4,8 @@ owner: GrowDirect LLC
 type: platform-doc
 date: 2026-04-24
 tags: [differentiated-five, positioning, v1, smb-retail]
+nav_order: 6
+
 ---
 
 # The Differentiated-Five — T + R + N + A + Q

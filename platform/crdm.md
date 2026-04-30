@@ -2,6 +2,8 @@
 classification: confidential
 owner: GrowDirect LLC
 type: data-model
+nav_order: 4
+
 ---
 
 # Canonical Retail Data Model (CRDM) — the ODS at the center

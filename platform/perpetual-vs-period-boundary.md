@@ -4,6 +4,8 @@ type: platform-substrate
 owner: GrowDirect LLC
 classification: confidential
 tags: [substrate, architectural-principle, perpetual-vs-period, integration-pattern, integrated-hybrid, boundary]
+nav_order: 9
+
 ---
 
 # The Perpetual-vs-Period Boundary

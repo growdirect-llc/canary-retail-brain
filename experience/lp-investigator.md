@@ -1,6 +1,8 @@
 ---
 title: The Loss Prevention Investigator
 classification: confidential
+nav_order: 4
+
 ---
 
 # The LP investigator

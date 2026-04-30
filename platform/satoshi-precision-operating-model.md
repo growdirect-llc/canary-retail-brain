@@ -4,6 +4,8 @@ type: platform-substrate
 owner: GrowDirect LLC
 classification: confidential
 tags: [substrate, satoshi-precision, operating-model, cogs, cac, sga, iot, end-to-end-precision, top-down]
+nav_order: 11
+
 ---
 
 # Satoshi-Precision Operating Model

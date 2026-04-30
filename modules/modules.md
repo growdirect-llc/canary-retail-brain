@@ -1,6 +1,8 @@
 ---
 title: The 13-Module Spine
 classification: confidential
+nav_order: 1
+
 ---
 
 # The 13-module spine

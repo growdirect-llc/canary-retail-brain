@@ -4,6 +4,8 @@ owner: GrowDirect LLC
 type: platform-doc
 date: 2026-04-24
 tags: [arts, poslog, customer-model, device-model, site-model, standards-alignment]
+nav_order: 5
+
 ---
 
 # ARTS Adoption — POSLog · Customer · Device · Site

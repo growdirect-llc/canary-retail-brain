@@ -1,6 +1,8 @@
 ---
 title: Operating System Mode
 classification: confidential
+nav_order: 2
+
 ---
 
 # Operating system

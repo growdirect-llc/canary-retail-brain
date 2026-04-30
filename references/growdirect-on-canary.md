@@ -1,6 +1,8 @@
 ---
 title: GrowDirect on Canary — Internal Reference
 classification: confidential
+nav_order: 3
+
 ---
 
 # GrowDirect on Canary — internal reference

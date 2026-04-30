@@ -4,6 +4,8 @@ type: platform-doc
 owner: GrowDirect LLC
 classification: confidential
 tags: [manifest, schema, agents-as-code, infrastructure-as-code, module-spine, declarative-infrastructure]
+nav_order: 14
+
 ---
 
 # Module Manifest Schema — Spine Modules as Code

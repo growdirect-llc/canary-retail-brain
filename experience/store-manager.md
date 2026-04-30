@@ -1,6 +1,8 @@
 ---
 title: The Store Manager
 classification: confidential
+nav_order: 3
+
 ---
 
 # The store manager

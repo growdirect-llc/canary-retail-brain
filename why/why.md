@@ -1,6 +1,8 @@
 ---
 title: Why Canary
 classification: confidential
+nav_order: 1
+
 ---
 
 # Why Canary
