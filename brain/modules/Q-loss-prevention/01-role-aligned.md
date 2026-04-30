@@ -1,4 +1,5 @@
 ---
+title: Q — Role Alignment
 date: 2026-04-24
 type: wiki
 status: active

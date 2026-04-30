@@ -12,6 +12,7 @@ nav_order:
   - references
   - brain
   - case-studies
+  - deep
 ---
 
 # Canary runs the loops. The merchant runs the store.

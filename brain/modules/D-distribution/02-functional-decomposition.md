@@ -1,4 +1,5 @@
 ---
+title: D — Functional Decomp
 classification: internal
 type: wiki
 sub-type: module-functional-decomposition
