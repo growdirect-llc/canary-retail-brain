@@ -1,106 +1,18 @@
-@use 'canary-light';
-
-// Canary design system structural overrides for Quartz
-// Token colors are declared in quartz.config.ts theme — do not redefine here.
-
-// Canary extended tokens (not in Quartz's theme system)
-:root {
-  --severity-critical-bg: rgba(207, 34, 46, 0.08);
-  --severity-critical-text: #CF222E;
-  --severity-warning-bg: rgba(212, 160, 23, 0.08);
-  --severity-warning-text: #D4A017;
-  --severity-info-bg: rgba(9, 105, 218, 0.08);
-  --severity-info-text: #0969DA;
-  --severity-healthy-bg: rgba(26, 127, 55, 0.08);
-  --severity-healthy-text: #1A7F37;
-
-  // Module identity colors (used for CRB graph node coloring in v2)
-  --color-canary: #BF8700;
-  --color-fox: #BC4C00;
-  --color-owl: #6639BA;
-  --color-bull: #116329;
-  --color-rooster: #0550AE;
-  --color-goose: #0E6D51;
+// Section heading color override — gold accent for H2/H3 in body
+article h2, article h3 {
+  color: var(--secondary);
 }
 
-// Explorer — folders-first sections with visual weight
-.explorer {
-  .folder-outer > .folder-container {
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  ul ul {
-    border-left: 1px solid var(--lightgray);
-    margin-left: 0.5rem;
-    padding-left: 0.5rem;
-  }
-}
-
-// Module manifest YAML files — render as code but with a module badge header
-.module-article .content-meta::after {
-  content: "ARTS Module";
-  display: inline-block;
-  margin-left: 8px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.6875rem;
+// Explorer folder labels — make them bolder so "BRAIN" reads clearly
+.explorer .folder-button {
+  color: var(--dark) !important;
   font-weight: 600;
-  background: rgba(191, 135, 0, 0.08);
-  color: var(--color-canary);
+  letter-spacing: 0.02em;
 }
 
-// Article freshness badge
-.needs-review {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  background: var(--severity-warning-bg);
-  color: var(--severity-warning-text);
-}
-
-// Page title — apply Canary bird logo via pseudo-element
-#quartz-body .left .page-title a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  &::before {
-    content: "";
-    display: inline-block;
-    width: 28px;
-    height: 28px;
-    background: url("/static/canary-bird-light.svg") no-repeat center / contain;
-    flex-shrink: 0;
-  }
-}
-
-// Graph container
-.graph-outer {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-// Tag pill
-.tag-link {
-  border-radius: 20px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 2px 10px;
-}
-
-// Mobile — hide explorer tree so content leads; search stays accessible
-@media (max-width: 768px) {
-  .explorer {
-    display: none !important;
-  }
-  // Right column panels are noise on phone
-  .graph-outer,
-  .backlinks {
-    display: none !important;
-  }
+// Inline content meta with breadcrumbs
+.content-meta {
+  font-size: 0.85rem;
+  color: var(--gray);
+  margin-top: -0.5rem;
 }
