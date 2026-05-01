@@ -165,6 +165,10 @@ Three downstream edits land in the same commit set as this card:
 2. [[canary-go-vs-gk-pos-gap-analysis]] — add a "Gap as tier coverage, not endpoint count" section; reframe the 9-namespace GK comparison with the tier lens (GK's Pos namespace is stream + reference; their Service API spans daily batch + bulk window; the gap analysis is now multi-dimensional).
 3. The dispatch GRO-717 closes on the commit landing.
 
+## What this enables downstream
+
+Tier weights are the load-bearing input to the [[canary-go-satoshi-cost-model|satoshi cost model]] — the platform's commercial mechanism. A stream-tier consumer costs ~50× a reference-tier consumer at the same event volume; the cadence ladder names the asymmetry, the satoshi cost model prices it. Every event metered carries the tier weight from this card directly into per-merchant accumulation. Without the cadence ladder, the cost model has no defensible weighting basis. With it, every line item on every usage statement traces to a tier defined here.
+
 ## What this is *not*
 
 - **Not a replacement for the three-axis model.** The Adapter / Resource / Agent split stays. This adds a column.

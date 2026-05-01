@@ -205,6 +205,21 @@ The 32-service REST surface. Tier column on every table. ⚪ rows are tier-shape
 | `POST /reports/schedules` | Reference | `report` (:8098) | ⚪ |
 | `POST /exports/{kind}` | Bulk window | `report` (:8098) | ⚪ |
 
+### Cost & Settlement (satoshi rollup — Canary-unique moat)
+
+The cost-rollup surface composes three patent-protected primitives (ILDWAC + L402-OTB + blockchain-anchor) into a satoshi-denominated billing model. See [[canary-go-satoshi-cost-model|Satoshi Cost Model]] and SDD `satoshi-cost-rollup.md` for full detail.
+
+| Pattern | Tier | Service | Status |
+|---|---|---|---|
+| `POST /usage/forecast` (5-input diagnostic) | Reference | `report` (or new `forecast`) | ⚪ |
+| `GET /usage/statements?merchant_id=&since=` | Change-feed | `report` | ⚪ |
+| `GET /usage/statements/:id` | Reference | `report` | ⚪ |
+| `GET /usage/statements/:id/proof?event_id=` | Reference | `report` | ⚪ |
+| `GET /usage/sse?merchant_id=` | Stream | `ops-dashboard` | ⚪ |
+| `GET /usage/current?merchant_id=` | Reference | `ops-dashboard` | ⚪ |
+| `POST /usage/statements/:id/pay` | Stream | `l402-otb` | ⚪ |
+| `GET /revshare/channels?period=` | Reference | `commercial` | ⚪ |
+
 ### Accountability Rails (Canary-unique — no GK equivalent)
 
 These are the moats. Tier mapping is patent-protected territory; do not break it.
@@ -266,6 +281,7 @@ Each agent-facing service exposes an MCP server with named tools. JWT-gated. RES
 | `canary-owl` | Reference | `owl` (:8084) | TBD (search, risk lookup, EJ spine query) | ⚪ |
 | `canary-store-brain` | Stream + Reference | `store-brain` (:9085) | TBD (presence resolution, session governance) | ⚪ |
 | `canary-ops` | Stream + Reference | `ops-dashboard` (:9084) | TBD (device health queries, alert gates) | ⚪ |
+| `canary-cost` | Reference | `report` or new `forecast` | 4 tools: `cost.preview_call`, `cost.merchant_summary`, `cost.statement_proof`, `cost.forecast` (verifiable billing surface — Canary moat) | ⚪ |
 
 ### SSE streams (Stream tier)
 
