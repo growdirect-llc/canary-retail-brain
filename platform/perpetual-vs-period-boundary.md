@@ -168,7 +168,7 @@ Three reasons:
 
 2. **Period summary is regulated; perpetual movement is not.** Tax filings, payroll filings, financial statements all come out of the period-summary layer. Canary owning that surface means Canary inheriting the regulatory burden — tax certifications per jurisdiction, payroll-tax accuracy guarantees, audit-trail attestation. The merchant's existing tool already carries this; let it.
 
-3. **Perpetual is the strategic position; period is commodity.** The perpetual movement layer is what nobody else ships at SMB tier. Period-summary is shipped by every accounting package, every payroll system, every CRM. The product wedge is on the perpetual side. The period side is a commodity Canary should integrate to, not rebuild.
+3. **Perpetual is the strategic position; period is commodity.** The perpetual movement layer is what isn't shipped at SMB tier today. Period-summary is shipped by every accounting package, every payroll system, every CRM. The product wedge is on the perpetual side. The period side is a commodity Canary should integrate to, not rebuild.
 
 ## The boundary, per module
 

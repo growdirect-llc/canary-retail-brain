@@ -67,7 +67,7 @@ SaaS: sells access to a database. The merchant asserts what the database says.
 
 EDS: sells trust in a document. Any authorised counterparty can verify the document's state without trusting the merchant or the platform.
 
-No enterprise retail software vendor currently offers hash-verified, smart-contract-consumable retail document services as a unified platform primitive. The incumbents (SAP, Oracle Retail, Blue Yonder) are database-of-record vendors. They assert. They do not verify. The EDS architecture makes verification a platform capability, not an audit engagement.
+Hash-verified, smart-contract-consumable retail document services are not currently shipped as a unified platform primitive by the enterprise retail software incumbents (SAP, Oracle Retail, Blue Yonder). Those systems are databases of record. They assert. They do not verify. The EDS architecture makes verification a platform capability, not an audit engagement.
 
 ## MCP surface
 

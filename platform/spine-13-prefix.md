@@ -35,7 +35,7 @@ from customer-facing commerce through back-office governance.
 ## v1 — Differentiated-Five (T + R + N + A + Q)
 
 These five ship at v1 because together they answer the question: "What
-do SMB specialty retailers have that nobody else productizes?"
+do SMB specialty retailers have that isn't productized at this tier?"
 
 - **T** and **Q** are the classical LP workload — transaction
   ingestion and rule-based detection. Everyone ships these, most ship

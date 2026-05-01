@@ -43,7 +43,7 @@ These exist specifically because Canary is the intelligence layer — not becaus
 | L3 ID | Process | Why Category A |
 |-------|---------|---------------|
 | T.2.3 | Hash-before-parse | Patent-critical ordering constraint. Canary's evidentiary integrity depends on this |
-| T.2.4–T.2.6 | Seal record write, fanout routing, mutation-lock | The tamper-evidence layer. No other system does this on retail transactions |
+| T.2.4–T.2.6 | Seal record write, fanout routing, mutation-lock | Tamper-evidence layer applied at the transaction grain |
 | T.4.1–T.4.9 | Canonical event publication (SALE, RETURN, VOID, PAYMENT, TAX, AUDIT, routing, customer upsert) | Canary's canonical data model — the intelligence substrate above the raw Counterpoint data |
 | T.5.1–T.5.5 | Merkle anchoring (tree, root hash, leaf linkage, audit proof, verification) | The L2 blockchain anchoring. One of the three platform accountability rails |
 | T.7.1–T.7.12 | Substrate contracts | Canary's internal API contract surface — what T owes every downstream module |
