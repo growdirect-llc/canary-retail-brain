@@ -8,8 +8,8 @@ feeds:
   - role-binding-model
   - module-p
   - module-s
-  - module-j
-  - module-c
+  - module-o
+  - module-m
 receives:
   - merchant-org-hierarchy
 tags: [hierarchy, category, merchandising, division, department, sku, range, otb]
@@ -59,8 +59,8 @@ The GEO_STORE node in the [[geography-hierarchy]] is the anchor where category p
 |----------|------|
 | **Module P (Pricing & Promotion)** | Promotional rules attach to Category or Sub-category nodes |
 | **Module S (Space, Range & Display)** | Range decisions at Category level, planograms at Sub-category |
-| **Module J (Forecast & Order)** | Forecast buckets at Category or SKU level by store |
-| **Module C (Commercial)** | Commercial strategy operates on Division and Department nodes |
+| **Module O (Orders)** | Forecast buckets at Category or SKU level by store |
+| **Module M (Merchandising)** | Commercial strategy operates on Division and Department nodes |
 | **Signal: Seasonality** | Demand curves are modeled per Category node |
 
 ## Related

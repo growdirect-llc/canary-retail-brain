@@ -121,45 +121,45 @@ Provenance codes: `DOCUMENTED` = explicitly stated in functional-decomp file | `
 
 ---
 
-## Module R — Customer
+## Module C — Customer
 
 **L1:** People / Customer | **Go subsystem:** `cmd/customer` | **Solution Map:** ● Full direct
 
 | L2 | L3 ID | L3 Process | Provenance | Go Subsystem | Status |
 |----|-------|-----------|-----------|-------------|--------|
-| R.1 Registry & upsert | R.1.1 | Shell-row upsert from T's reference | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.2 | Full-row enrichment from GET /Customer/{CustNo} | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.3 | Incremental sync via GET /Customers | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.4 | EC-flagged customer enrichment | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.5 | CustomerControl read at tenant bootstrap | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.6 | Workgroup template read | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.7 | Soft-delete on customer archival | DOCUMENTED | `cmd/customer` | Mapped |
-| R.1 | R.1.8 | Multi-company namespace isolation | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 Tier identity | R.2.1 | Surface CATEG_COD verbatim | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 | R.2.2 | Tier-code → tier-meaning mapping per tenant | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 | R.2.3 | Tier-change audit on customer record | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 | R.2.4 | Multi-tier pricing flag surfacing | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 | R.2.5 | Open-AR balance per customer | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 | R.2.6 | Customer credit posture | DOCUMENTED | `cmd/customer` | Mapped |
-| R.2 | R.2.7 | B2B vs retail derivation hooks | DOCUMENTED | `cmd/customer` | Mapped |
-| R.3 Loyalty + AR | R.3.1 | Surface loyalty enrollment | DOCUMENTED | `cmd/customer` | Mapped |
-| R.3 | R.3.2 | Surface loyalty balance | DOCUMENTED | `cmd/customer` | Mapped |
-| R.3 | R.3.3 | Surface loyalty redemption events | DOCUMENTED | `cmd/customer` | Mapped |
-| R.3 | R.3.4 | Surface AR-customer flag | DOCUMENTED | `cmd/customer` | Mapped |
-| R.3 | R.3.5 | Surface open AR aging | DOCUMENTED | `cmd/customer` | Mapped |
-| R.3 | R.3.6 | AR-charge-vs-cash transaction posture | DOCUMENTED | `cmd/customer` | Mapped |
-| R.4 Privacy posture | R.4.1 | Schema-enforced PII absence | DOCUMENTED | `cmd/customer` | Mapped |
-| R.4 | R.4.2 | Read-through to Counterpoint at query time | DOCUMENTED | `cmd/customer` | Mapped |
-| R.4 | R.4.3 | Card-fingerprint storage (opaque) | DOCUMENTED | `cmd/customer` | Mapped |
-| R.4 | R.4.4 | PII-redaction-at-parse contract | DOCUMENTED | `cmd/customer` | Mapped |
-| R.4 | R.4.5 | GDPR/CCPA right-to-be-forgotten | DOCUMENTED | `cmd/customer` | Mapped |
-| R.4 | R.4.6 | Profile-extension opt-in (future) | DOCUMENTED | `cmd/customer` | Mapped |
-| R.5 Identity resolution | R.5.1 | Per-(tenant,company_alias) namespace isolation | DOCUMENTED | `cmd/customer` | Mapped |
-| R.5 | R.5.2 | external_identities link table | DOCUMENTED | `cmd/customer` | Mapped |
-| R.5 | R.5.3 | Manual identity link surface | DOCUMENTED | `cmd/customer` | Mapped |
-| R.5 | R.5.4 | Cross-vendor identity resolution (v2) | DOCUMENTED | `cmd/customer` | Mapped |
-| R.5 | R.5.5 | Customer-side ID assertion (future) | DOCUMENTED | `cmd/customer` | Mapped |
-| R.6 Investigator + contracts | R.6.1–R.6.14 | Investigator surface (6) + substrate contracts (8) | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 Registry & upsert | C.1.1 | Shell-row upsert from T's reference | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.2 | Full-row enrichment from GET /Customer/{CustNo} | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.3 | Incremental sync via GET /Customers | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.4 | EC-flagged customer enrichment | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.5 | CustomerControl read at tenant bootstrap | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.6 | Workgroup template read | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.7 | Soft-delete on customer archival | DOCUMENTED | `cmd/customer` | Mapped |
+| C.1 | C.1.8 | Multi-company namespace isolation | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 Tier identity | C.2.1 | Surface CATEG_COD verbatim | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 | C.2.2 | Tier-code → tier-meaning mapping per tenant | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 | C.2.3 | Tier-change audit on customer record | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 | C.2.4 | Multi-tier pricing flag surfacing | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 | C.2.5 | Open-AR balance per customer | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 | C.2.6 | Customer credit posture | DOCUMENTED | `cmd/customer` | Mapped |
+| C.2 | C.2.7 | B2B vs retail derivation hooks | DOCUMENTED | `cmd/customer` | Mapped |
+| C.3 Loyalty + AR | C.3.1 | Surface loyalty enrollment | DOCUMENTED | `cmd/customer` | Mapped |
+| C.3 | C.3.2 | Surface loyalty balance | DOCUMENTED | `cmd/customer` | Mapped |
+| C.3 | C.3.3 | Surface loyalty redemption events | DOCUMENTED | `cmd/customer` | Mapped |
+| C.3 | C.3.4 | Surface AR-customer flag | DOCUMENTED | `cmd/customer` | Mapped |
+| C.3 | C.3.5 | Surface open AR aging | DOCUMENTED | `cmd/customer` | Mapped |
+| C.3 | C.3.6 | AR-charge-vs-cash transaction posture | DOCUMENTED | `cmd/customer` | Mapped |
+| C.4 Privacy posture | C.4.1 | Schema-enforced PII absence | DOCUMENTED | `cmd/customer` | Mapped |
+| C.4 | C.4.2 | Read-through to Counterpoint at query time | DOCUMENTED | `cmd/customer` | Mapped |
+| C.4 | C.4.3 | Card-fingerprint storage (opaque) | DOCUMENTED | `cmd/customer` | Mapped |
+| C.4 | C.4.4 | PII-redaction-at-parse contract | DOCUMENTED | `cmd/customer` | Mapped |
+| C.4 | C.4.5 | GDPR/CCPA right-to-be-forgotten | DOCUMENTED | `cmd/customer` | Mapped |
+| C.4 | C.4.6 | Profile-extension opt-in (future) | DOCUMENTED | `cmd/customer` | Mapped |
+| C.5 Identity resolution | C.5.1 | Per-(tenant,company_alias) namespace isolation | DOCUMENTED | `cmd/customer` | Mapped |
+| C.5 | C.5.2 | external_identities link table | DOCUMENTED | `cmd/customer` | Mapped |
+| C.5 | C.5.3 | Manual identity link surface | DOCUMENTED | `cmd/customer` | Mapped |
+| C.5 | C.5.4 | Cross-vendor identity resolution (v2) | DOCUMENTED | `cmd/customer` | Mapped |
+| C.5 | C.5.5 | Customer-side ID assertion (future) | DOCUMENTED | `cmd/customer` | Mapped |
+| C.6 Investigator + contracts | C.6.1–C.6.14 | Investigator surface (6) + substrate contracts (8) | DOCUMENTED | `cmd/customer` | Mapped |
 
 **R total L3:** 32 (+ 14 contracts/surface) | **All mapped** → `cmd/customer`
 
@@ -227,35 +227,35 @@ Provenance codes: `DOCUMENTED` = explicitly stated in functional-decomp file | `
 
 ---
 
-## Module C — Commercial / B2B
+## Module M — Commercial / B2B
 
 **L1:** Commercial / B2B Intelligence | **Go subsystem:** GAP — no `cmd/commercial` found | **Solution Map:** ◐ Derived
 
 | L2 | L3 ID | L3 Process | Provenance | Go Subsystem | Status |
 |----|-------|-----------|-----------|-------------|--------|
-| C.1 B2B classification | C.1.1 | Read AR_CUST.CATEG_COD from R | DOCUMENTED | GAP | GAP |
-| C.1 | C.1.2 | Read AR_CUST_CTL multi-tier pricing flags | DOCUMENTED | GAP | GAP |
-| C.1 | C.1.3 | Detect commercial-account indicator via credit terms | DOCUMENTED | GAP | GAP |
-| C.1 | C.1.4 | Derive B2B classification score per customer | DOCUMENTED | GAP | GAP |
-| C.1 | C.1.5 | Handle unclassified accounts | DOCUMENTED | GAP | GAP |
-| C.1 | C.1.6 | Reclassification on CATEG_COD change | DOCUMENTED | GAP | GAP |
-| C.2 Credit posture | C.2.1 | Read credit limit and current balance from AR_CUST | DOCUMENTED | GAP | GAP |
-| C.2 | C.2.2 | Calculate credit utilization per commercial account | DOCUMENTED | GAP | GAP |
-| C.2 | C.2.3 | Read aging buckets from Customer_OpenItems | DOCUMENTED | GAP | GAP |
-| C.2 | C.2.4 | Derive payment velocity per account | DOCUMENTED | GAP | GAP |
-| C.2 | C.2.5 | Produce per-account CREDIT_POSTURE signal | DOCUMENTED | GAP | GAP |
-| C.2 | C.2.6 | Trigger credit-hold flag on AT-LIMIT accounts | DOCUMENTED | GAP | GAP |
-| C.3 AR ledger surface | C.3.1 | Read per-account open items from F.6 publication | DOCUMENTED | GAP | GAP |
-| C.3 | C.3.2 | Aggregate open items into per-account AR summary | DOCUMENTED | GAP | GAP |
-| C.3 | C.3.3 | Track payment history per account | DOCUMENTED | GAP | GAP |
-| C.3 | C.3.4 | Surface AR aging calendar per commercial account | DOCUMENTED | GAP | GAP |
-| C.3 | C.3.5 | Detect anomalous payment patterns | DOCUMENTED | GAP | GAP |
-| C.4 B2B detection rules | C.4.1 | B2B-CREDIT-01: at-limit account transacting | DOCUMENTED | GAP | GAP |
-| C.4 | C.4.2 | B2B-CREDIT-02: rapid credit consumption | DOCUMENTED | GAP | GAP |
-| C.4 | C.4.3 | B2B-AR-01: past-due balance threshold | DOCUMENTED | GAP | GAP |
-| C.4 | C.4.4 | B2B-TIER-01: price inconsistent with B2B tier | DOCUMENTED | GAP | GAP |
-| C.4 | C.4.5 | B2B-PATTERN-01: commercial transacting outside business hours | DOCUMENTED | GAP | GAP |
-| C.5 Contracts | C.5.1–C.5.6 | B2B_CLASS, CREDIT_POSTURE, AR summary, alerts, price-tier mapping, UNCERTAIN roster | DOCUMENTED | GAP | GAP |
+| M.1 B2B classification | M.1.1 | Read AR_CUST.CATEG_COD from R | DOCUMENTED | GAP | GAP |
+| M.1 | M.1.2 | Read AR_CUST_CTL multi-tier pricing flags | DOCUMENTED | GAP | GAP |
+| M.1 | M.1.3 | Detect commercial-account indicator via credit terms | DOCUMENTED | GAP | GAP |
+| M.1 | M.1.4 | Derive B2B classification score per customer | DOCUMENTED | GAP | GAP |
+| M.1 | M.1.5 | Handle unclassified accounts | DOCUMENTED | GAP | GAP |
+| M.1 | M.1.6 | Reclassification on CATEG_COD change | DOCUMENTED | GAP | GAP |
+| M.2 Credit posture | M.2.1 | Read credit limit and current balance from AR_CUST | DOCUMENTED | GAP | GAP |
+| M.2 | M.2.2 | Calculate credit utilization per commercial account | DOCUMENTED | GAP | GAP |
+| M.2 | M.2.3 | Read aging buckets from Customer_OpenItems | DOCUMENTED | GAP | GAP |
+| M.2 | M.2.4 | Derive payment velocity per account | DOCUMENTED | GAP | GAP |
+| M.2 | M.2.5 | Produce per-account CREDIT_POSTURE signal | DOCUMENTED | GAP | GAP |
+| M.2 | M.2.6 | Trigger credit-hold flag on AT-LIMIT accounts | DOCUMENTED | GAP | GAP |
+| M.3 AR ledger surface | M.3.1 | Read per-account open items from F.6 publication | DOCUMENTED | GAP | GAP |
+| M.3 | M.3.2 | Aggregate open items into per-account AR summary | DOCUMENTED | GAP | GAP |
+| M.3 | M.3.3 | Track payment history per account | DOCUMENTED | GAP | GAP |
+| M.3 | M.3.4 | Surface AR aging calendar per commercial account | DOCUMENTED | GAP | GAP |
+| M.3 | M.3.5 | Detect anomalous payment patterns | DOCUMENTED | GAP | GAP |
+| M.4 B2B detection rules | M.4.1 | B2B-CREDIT-01: at-limit account transacting | DOCUMENTED | GAP | GAP |
+| M.4 | M.4.2 | B2B-CREDIT-02: rapid credit consumption | DOCUMENTED | GAP | GAP |
+| M.4 | M.4.3 | B2B-AR-01: past-due balance threshold | DOCUMENTED | GAP | GAP |
+| M.4 | M.4.4 | B2B-TIER-01: price inconsistent with B2B tier | DOCUMENTED | GAP | GAP |
+| M.4 | M.4.5 | B2B-PATTERN-01: commercial transacting outside business hours | DOCUMENTED | GAP | GAP |
+| M.5 Contracts | M.5.1–M.5.6 | B2B_CLASS, CREDIT_POSTURE, AR summary, alerts, price-tier mapping, UNCERTAIN roster | DOCUMENTED | GAP | GAP |
 
 **C total L3:** 26 | **All GAP** — `cmd/customer` is R's subsystem; no `cmd/commercial` package exists for C's derived classification layer.
 
@@ -345,73 +345,73 @@ Provenance codes: `DOCUMENTED` = explicitly stated in functional-decomp file | `
 
 ---
 
-## Module J — Forecast & Order
+## Module O — Orders
 
-**L1:** Forecasting / Order Management | **Go subsystems:** `cmd/receiving` (J.6/J.7), GAP for J.1/J.2/J.3/J.4/J.5/J.8 | **Solution Map:** ◐ Partial
+**L1:** Forecasting / Order Management | **Go subsystems:** `cmd/receiving` (O.6/O.7), GAP for O.1/O.2/O.3/O.4/O.5/O.8 | **Solution Map:** ◐ Partial
 
 | L2 | L3 ID | L3 Process | Provenance | Go Subsystem | Status |
 |----|-------|-----------|-----------|-------------|--------|
-| J.1 Demand forecasting | J.1.1 | Read movement history per item per location | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.2 | Calculate demand velocity | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.3 | Calculate demand variance | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.4 | Produce 13-week rolling forecast | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.5 | Hierarchy-volatility-aware forecasting | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.6 | Like-item forecasting for new SKUs | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.7 | Per-channel demand attribution | DOCUMENTED | GAP | GAP |
-| J.1 | J.1.8 | Forecast accuracy tracking (MAPE, bias) | DOCUMENTED | GAP | GAP |
-| J.2 Replenishment params | J.2.1 | Calculate ROP per (item, location) | DOCUMENTED | GAP | GAP |
-| J.2 | J.2.2 | Calculate EOQ per (item, location) | DOCUMENTED | GAP | GAP |
-| J.2 | J.2.3 | Calculate Safety Stock | DOCUMENTED | GAP | GAP |
-| J.2 | J.2.4 | Maintain Weeks-of-Supply target per category | DOCUMENTED | GAP | GAP |
-| J.2 | J.2.5 | Counter stock exclusion | DOCUMENTED | GAP | GAP |
-| J.2 | J.2.6 | Lead-time variance modeling | DOCUMENTED | GAP | GAP |
-| J.2 | J.2.7 | Pre-pack-aware EOQ | DOCUMENTED | GAP | GAP |
-| J.3 OTB management | J.3.1 | Read OTB budget from P's seasonal plan | DOCUMENTED | GAP | GAP |
-| J.3 | J.3.2 | Calculate committed receipts per (dept, period) | DOCUMENTED | GAP | GAP |
-| J.3 | J.3.3 | Compute remaining OTB headroom (rolling) | DOCUMENTED | GAP | GAP |
-| J.3 | J.3.4 | OTB preview before PO commit | DOCUMENTED | GAP | GAP |
-| J.3 | J.3.5 | OTB state-change events | DOCUMENTED | GAP | GAP |
-| J.3 | J.3.6 | OTB approval gate routing | DOCUMENTED | GAP | GAP |
-| J.3 | J.3.7 | Locked-period override | DOCUMENTED | GAP | GAP |
-| J.4 PO recommendation | J.4.1 | Detect below-ROP items per scan | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.2 | Generate PO recommendation per (supplier, receipt-week) | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.3 | OTB headroom validation per recommendation | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.4 | Recommendation prioritization | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.5 | Buyer review + accept/modify/reject | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.6 | Multi-tier approval routing | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.7 | Auto-commit threshold | DOCUMENTED | GAP | GAP |
-| J.4 | J.4.8 | What-if simulation | DOCUMENTED | GAP | GAP |
-| J.5 PO generation | J.5.1 | Buyer-entered-in-Counterpoint path (v2) | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.2 | Canary-POST-Document path (v3+) | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.3 | PO header generation | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.4 | PO line generation | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.5 | Pre-distributed PO with allocation attached | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.6 | Bulk PO with allocation deferred | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.7 | EDI transmission to vendor | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.8 | New article creation at PO entry | DOCUMENTED | GAP | GAP |
-| J.5 | J.5.9 | PO change message on allocation revision | DOCUMENTED | GAP | GAP |
-| J.6 Receiving | J.6.1 | Detect new receiver Documents (DOC_TYP=RECVR) | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.2 | Match receiver to PO via PS_DOC_HDR_ORIG_DOC | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.3 | Quantity reconciliation (RECVR vs PO qty) | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.4 | Cost reconciliation | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.5 | OTB closeout on receipt | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.6 | Forecast accuracy feedback from receipt date | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.7 | Thin-metadata receiver tolerance | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.6 | J.6.8 | Cash-paid receiver classification | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 Short-ship + RTV | J.7.1 | Short-ship detection | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 | J.7.2 | Re-allocation logic on short-ship | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 | J.7.3 | PO change message for cancelled balance | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 | J.7.4 | RTV recommendation generation | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 | J.7.5 | RTV impact on OTB | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 | J.7.6 | RTV reason-code tracking | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.7 | J.7.7 | Dead-count / live-goods write-off | DOCUMENTED | `cmd/receiving` | Mapped |
-| J.8 Promo isolation + contracts | J.8.1 | Read promotion calendar from P | DOCUMENTED | GAP | GAP |
-| J.8 | J.8.2 | Quarantine promotional lift from base demand | DOCUMENTED | GAP | GAP |
-| J.8 | J.8.3 | Recurring-promotion blending | DOCUMENTED | GAP | GAP |
-| J.8 | J.8.4 | Pre-promotion demand projection | DOCUMENTED | GAP | GAP |
-| J.8 | J.8.5–J.8.11 | Substrate contract registry (7 contracts) | DOCUMENTED | GAP | GAP |
+| O.1 Demand forecasting | O.1.1 | Read movement history per item per location | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.2 | Calculate demand velocity | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.3 | Calculate demand variance | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.4 | Produce 13-week rolling forecast | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.5 | Hierarchy-volatility-aware forecasting | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.6 | Like-item forecasting for new SKUs | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.7 | Per-channel demand attribution | DOCUMENTED | GAP | GAP |
+| O.1 | O.1.8 | Forecast accuracy tracking (MAPE, bias) | DOCUMENTED | GAP | GAP |
+| O.2 Replenishment params | O.2.1 | Calculate ROP per (item, location) | DOCUMENTED | GAP | GAP |
+| O.2 | O.2.2 | Calculate EOQ per (item, location) | DOCUMENTED | GAP | GAP |
+| O.2 | O.2.3 | Calculate Safety Stock | DOCUMENTED | GAP | GAP |
+| O.2 | O.2.4 | Maintain Weeks-of-Supply target per category | DOCUMENTED | GAP | GAP |
+| O.2 | O.2.5 | Counter stock exclusion | DOCUMENTED | GAP | GAP |
+| O.2 | O.2.6 | Lead-time variance modeling | DOCUMENTED | GAP | GAP |
+| O.2 | O.2.7 | Pre-pack-aware EOQ | DOCUMENTED | GAP | GAP |
+| O.3 OTB management | O.3.1 | Read OTB budget from P's seasonal plan | DOCUMENTED | GAP | GAP |
+| O.3 | O.3.2 | Calculate committed receipts per (dept, period) | DOCUMENTED | GAP | GAP |
+| O.3 | O.3.3 | Compute remaining OTB headroom (rolling) | DOCUMENTED | GAP | GAP |
+| O.3 | O.3.4 | OTB preview before PO commit | DOCUMENTED | GAP | GAP |
+| O.3 | O.3.5 | OTB state-change events | DOCUMENTED | GAP | GAP |
+| O.3 | O.3.6 | OTB approval gate routing | DOCUMENTED | GAP | GAP |
+| O.3 | O.3.7 | Locked-period override | DOCUMENTED | GAP | GAP |
+| O.4 PO recommendation | O.4.1 | Detect below-ROP items per scan | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.2 | Generate PO recommendation per (supplier, receipt-week) | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.3 | OTB headroom validation per recommendation | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.4 | Recommendation prioritization | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.5 | Buyer review + accept/modify/reject | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.6 | Multi-tier approval routing | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.7 | Auto-commit threshold | DOCUMENTED | GAP | GAP |
+| O.4 | O.4.8 | What-if simulation | DOCUMENTED | GAP | GAP |
+| O.5 PO generation | O.5.1 | Buyer-entered-in-Counterpoint path (v2) | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.2 | Canary-POST-Document path (v3+) | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.3 | PO header generation | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.4 | PO line generation | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.5 | Pre-distributed PO with allocation attached | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.6 | Bulk PO with allocation deferred | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.7 | EDI transmission to vendor | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.8 | New article creation at PO entry | DOCUMENTED | GAP | GAP |
+| O.5 | O.5.9 | PO change message on allocation revision | DOCUMENTED | GAP | GAP |
+| O.6 Receiving | O.6.1 | Detect new receiver Documents (DOC_TYP=RECVR) | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.2 | Match receiver to PO via PS_DOC_HDR_ORIG_DOC | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.3 | Quantity reconciliation (RECVR vs PO qty) | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.4 | Cost reconciliation | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.5 | OTB closeout on receipt | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.6 | Forecast accuracy feedback from receipt date | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.7 | Thin-metadata receiver tolerance | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.6 | O.6.8 | Cash-paid receiver classification | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 Short-ship + RTV | O.7.1 | Short-ship detection | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 | O.7.2 | Re-allocation logic on short-ship | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 | O.7.3 | PO change message for cancelled balance | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 | O.7.4 | RTV recommendation generation | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 | O.7.5 | RTV impact on OTB | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 | O.7.6 | RTV reason-code tracking | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.7 | O.7.7 | Dead-count / live-goods write-off | DOCUMENTED | `cmd/receiving` | Mapped |
+| O.8 Promo isolation + contracts | O.8.1 | Read promotion calendar from P | DOCUMENTED | GAP | GAP |
+| O.8 | O.8.2 | Quarantine promotional lift from base demand | DOCUMENTED | GAP | GAP |
+| O.8 | O.8.3 | Recurring-promotion blending | DOCUMENTED | GAP | GAP |
+| O.8 | O.8.4 | Pre-promotion demand projection | DOCUMENTED | GAP | GAP |
+| O.8 | O.8.5–O.8.11 | Substrate contract registry (7 contracts) | DOCUMENTED | GAP | GAP |
 
-**J total L3:** 47 | **Mapped:** 14 (J.6/J.7 → `cmd/receiving`) | **GAP:** 33 (J.1–J.5, J.8 — no forecast/OTB/PO-generation subsystem)
+**J total L3:** 47 | **Mapped:** 14 (O.6/O.7 → `cmd/receiving`) | **GAP:** 33 (O.1–O.5, O.8 — no forecast/OTB/PO-generation subsystem)
 
 ---
 
@@ -503,11 +503,11 @@ Provenance codes: `DOCUMENTED` = explicitly stated in functional-decomp file | `
 
 ---
 
-## Module L — Labor & Workforce
+## Module L — Labor
 
 **L1:** Workforce / Labor | **Go subsystem:** `cmd/employee` | **Solution Map:** v3 (not yet in Counterpoint scope)
 
-> **Source:** Narrative-only (`wiki/canary-module-l-labor-workforce.md`). No functional decomp file. All L3s INFERRED from schema crosswalk and narrative.
+> **Source:** Narrative-only (`wiki/canary-module-l-labor.md`). No functional decomp file. All L3s INFERRED from schema crosswalk and narrative.
 
 | L2 | L3 ID | L3 Process | Provenance | Go Subsystem | Status |
 |----|-------|-----------|-----------|-------------|--------|
@@ -531,28 +531,28 @@ Provenance codes: `DOCUMENTED` = explicitly stated in functional-decomp file | `
 
 ---
 
-## Module W — Work Execution
+## Module E — Execution
 
 **L1:** Cross-domain Exception Detection | **Go subsystem:** GAP — no `cmd/work` or equivalent found | **Solution Map:** v3 (capstone)
 
-> **Source:** Narrative-only (`wiki/canary-module-w-work-execution.md`). No functional decomp file. All L3s INFERRED from schema crosswalk and narrative.
+> **Source:** Narrative-only (`wiki/canary-module-e-execution.md`). No functional decomp file. All L3s INFERRED from schema crosswalk and narrative.
 
 | L2 | L3 ID | L3 Process | Provenance | Go Subsystem | Status |
 |----|-------|-----------|-----------|-------------|--------|
-| W.1 Exception ingestion | W.1.1 | Subscribe to all spine module exception streams | INFERRED | GAP | GAP |
-| W.1 | W.1.2 | Generic exception record creation | INFERRED | GAP | GAP |
-| W.2 Rule evaluation | W.2.1 | Domain-specific rule evaluation (inventory, pricing, labor, space) | INFERRED | GAP | GAP |
-| W.2 | W.2.2 | Exception severity classification | INFERRED | GAP | GAP |
-| W.3 Cross-domain correlation | W.3.1 | Subject-based exception correlation (customer/employee/vendor) | INFERRED | GAP | GAP |
-| W.3 | W.3.2 | Multi-domain pattern detection | INFERRED | GAP | GAP |
-| W.4 Case management | W.4.1 | Case creation from aggregated exceptions | INFERRED | GAP | GAP |
-| W.4 | W.4.2 | Case state machine (extends Q's Fox) | INFERRED | GAP | GAP |
-| W.4 | W.4.3 | Evidence chain (INSERT-only, hash-chained, inherited from Fox) | INFERRED | GAP | GAP |
-| W.5 Remediation routing | W.5.1 | Remediation request routing to target module | INFERRED | GAP | GAP |
-| W.5 | W.5.2 | Remediation status tracking | INFERRED | GAP | GAP |
-| W.6 Investigator tools | W.6.1 | Exception-search MCP tool | INFERRED | GAP | GAP |
-| W.6 | W.6.2 | Case CRUD MCP tool | INFERRED | GAP | GAP |
-| W.6 | W.6.3 | Cross-domain analytics surface | INFERRED | GAP | GAP |
+| E.1 Exception ingestion | E.1.1 | Subscribe to all spine module exception streams | INFERRED | GAP | GAP |
+| E.1 | E.1.2 | Generic exception record creation | INFERRED | GAP | GAP |
+| E.2 Rule evaluation | E.2.1 | Domain-specific rule evaluation (inventory, pricing, labor, space) | INFERRED | GAP | GAP |
+| E.2 | E.2.2 | Exception severity classification | INFERRED | GAP | GAP |
+| E.3 Cross-domain correlation | E.3.1 | Subject-based exception correlation (customer/employee/vendor) | INFERRED | GAP | GAP |
+| E.3 | E.3.2 | Multi-domain pattern detection | INFERRED | GAP | GAP |
+| E.4 Case management | E.4.1 | Case creation from aggregated exceptions | INFERRED | GAP | GAP |
+| E.4 | E.4.2 | Case state machine (extends Q's Fox) | INFERRED | GAP | GAP |
+| E.4 | E.4.3 | Evidence chain (INSERT-only, hash-chained, inherited from Fox) | INFERRED | GAP | GAP |
+| E.5 Remediation routing | E.5.1 | Remediation request routing to target module | INFERRED | GAP | GAP |
+| E.5 | E.5.2 | Remediation status tracking | INFERRED | GAP | GAP |
+| E.6 Investigator tools | E.6.1 | Exception-search MCP tool | INFERRED | GAP | GAP |
+| E.6 | E.6.2 | Case CRUD MCP tool | INFERRED | GAP | GAP |
+| E.6 | E.6.3 | Cross-domain analytics surface | INFERRED | GAP | GAP |
 
 **W total L3:** ~14 (INFERRED) | **All GAP** — v3 design; no cmd/ package exists yet
 
@@ -564,17 +564,17 @@ Provenance codes: `DOCUMENTED` = explicitly stated in functional-decomp file | `
 |--------|----------|----------|--------|-----|------------------------|
 | T — Transaction Pipeline | 7 | 41 | 41 | 0 | `cmd/tsp` |
 | Q — Loss Prevention | 7 | 38 | 38 | 0 | `cmd/chirp` / `cmd/fox` / `cmd/alert` |
-| R — Customer | 6 | 32 | 32 | 0 | `cmd/customer` |
+| C — Customer | 6 | 32 | 32 | 0 | `cmd/customer` |
 | N — Device / Store Config | 6 | 27 | 27 (INFERRED) | 0 | `cmd/edge` (INFERRED — confirm) |
 | A — Asset Management | 3 | 12 | 12 | 0 | `cmd/asset` / `cmd/inventory` |
 | C — Commercial / B2B | 5 | 26 | 0 | 26 | GAP — no `cmd/commercial` |
 | D — Distribution | 6 | 35 | 35 | 0 | `cmd/inventory` / `cmd/transfer` |
 | F — Finance | 6 | 31 | 31 | 0 | `cmd/analytics` / `cmd/identity` |
-| J — Forecast & Order | 8 | 47 | 14 | 33 | `cmd/receiving` (partial); GAP for forecast/OTB/PO |
+| J — Orders | 8 | 47 | 14 | 33 | `cmd/receiving` (partial); GAP for forecast/OTB/PO |
 | S — Space / Range / Display | 7 | 36 | 36 | 0 | `cmd/item` |
 | P — Pricing & Promotion | 6 | 33 | 33 | 0 | `cmd/pricing` |
-| L — Labor & Workforce | 7 | ~15 | ~15 (INFERRED) | 0 | `cmd/employee` |
-| W — Work Execution | 6 | ~14 | 0 | ~14 | GAP — v3 not yet built |
+| L — Labor | 7 | ~15 | ~15 (INFERRED) | 0 | `cmd/employee` |
+| W — Execution | 6 | ~14 | 0 | ~14 | GAP — v3 not yet built |
 | **TOTAL** | **80** | **~391** | **~319** | **~73** | — |
 
 **Note on L4:** All L3 processes in all modules are currently tagged `TBD: L4 implementation detail pending`. L4 is universally a GAP across the entire corpus. The user has indicated documentation exists that can be used to fill L4 steps — see CRB-GAP-LIST.md for the full L4 gap registry.

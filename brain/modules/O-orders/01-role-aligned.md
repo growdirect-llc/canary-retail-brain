@@ -3,19 +3,19 @@ title: J — Role Alignment
 date: 2026-04-24
 type: wiki
 status: active
-tags: [canary, retail-spine, module-j, forecast, replenishment, ordering, v2]
+tags: [canary, retail-spine, module-o, forecast, replenishment, ordering, v2]
 sources:
-  - Canary-Retail-Brain/modules/J-forecast-order.md
+  - Canary-Retail-Brain/modules/O-orders.md
   - Canary-Retail-Brain/platform/stock-ledger.md
   - Canary-Retail-Brain/platform/retail-accounting-method.md
 last-compiled: 2026-04-24
 ----
 
-# Canary Module — J (Forecast & Order)
+# Canary Module — J (Orders)
 
 ## Summary
 
-J (Forecast & Order) owns demand forecasting, replenishment-point calculation, and automated purchase-order recommendation. **Design-only at this point — no Canary code yet.** This wiki article is the Canary-specific crosswalk for the v2 J module. The canonical spec lives at `Canary-Retail-Brain/modules/J-forecast-order.md`.
+J (Orders) owns demand forecasting, replenishment-point calculation, and automated purchase-order recommendation. **Design-only at this point — no Canary code yet.** This wiki article is the Canary-specific crosswalk for the v2 J module. The canonical spec lives at `Canary-Retail-Brain/modules/O-orders.md`.
 
 J completes the buying triangle: C owns the catalog and OTB budget; F owns the financial close and cost method; J owns the demand signal and replenishment trigger. Together, C+F+J implement automated, demand-driven ordering constrained by budget.
 
@@ -63,7 +63,7 @@ No v2 SDDs exist yet for J. Projected SDD structure:
 
 | Axis | Cell | Notes |
 |---|---|---|
-| [[../projects/RetailSpine\|Retail Spine]] | v2 Forecast & Order | J is part of CRDM expansion ring alongside C, D, F |
+| [[../projects/RetailSpine\|Retail Spine]] | v2 Orders | J is part of CRDM expansion ring alongside C, D, F |
 | [[../projects/RetailSpine\|Retail Spine]] Ledger roles | Subscriber + Publisher (indirectly) | J reads ledger history; recommendations become F POs → D receipts |
 | Replenishment workflow | Read history → forecast → calc params → recommend PO → await approval | J orchestrates automated ordering pipeline |
 | Upstream deps | D (movement history), C (item master, OTB), F (on-order) | J cannot forecast without these |
@@ -79,7 +79,7 @@ No v2 SDDs exist yet for J. Projected SDD structure:
 ## Related
 
 - [[../projects/RetailSpine|Retail Spine MOC]]
-- [[canary-module-c-commercial|C (Commercial)]]
+- [[canary-module-m-merchandising|C (Commercial)]]
 - [[canary-module-d-distribution|D (Distribution)]]
 - [[canary-module-f-finance|F (Finance)]]
 - [[../platform/RetailSpine|Retail Spine — Ledger relationships]]
@@ -89,10 +89,10 @@ No v2 SDDs exist yet for J. Projected SDD structure:
 
 ## Sources
 
-- `Canary-Retail-Brain/modules/J-forecast-order.md` — canonical module spec
+- `Canary-Retail-Brain/modules/O-orders.md` — canonical module spec
 - `Canary-Retail-Brain/platform/stock-ledger.md` — ledger movement history patterns
 - `Canary/docs/sdds/v2/data-model.md` — projected schema overview (not yet written)
 
 ---
 
-**Status:** Canary module J is design-phase. No code yet. Ready for SDD drafting and schema design when v2 dev cycle begins. J is the final piece of the C+D+F+J buying triangle.
+**Status:** Canary module O is design-phase. No code yet. Ready for SDD drafting and schema design when v2 dev cycle begins. J is the final piece of the C+D+F+J buying triangle.

@@ -8,7 +8,7 @@ feeds:
   - role-binding-model
   - module-q
   - module-l
-  - module-w
+  - module-e
   - module-f
 receives: []
 tags: [org, hierarchy, merchant, retailer, smb, roles, access-control]
@@ -58,7 +58,7 @@ Two platform participants sit above the retailer and are not part of the merchan
 |----------|------|
 | **Module Q (Loss Prevention)** | Escalation routing — incident alerts go up the hierarchy to the correct LP authority |
 | **Module L (Labor)** | Scheduling scope — a Store manager sees their store, Head Office sees all stores |
-| **Module W (Work Execution)** | Dispatch routing — work orders assigned by layer authority |
+| **Module E (Execution)** | Dispatch routing — work orders assigned by layer authority |
 | **Module F (Finance)** | P&L scoping — Store layer gets single-location view, Org gets consolidated |
 | **Identity & Auth** | RBAC enforcement — JWT claims carry layer code, enforced on every request |
 

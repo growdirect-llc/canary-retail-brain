@@ -184,11 +184,11 @@ Every spine module declares its perpetual-vs-period boundary in its manifest's `
 | **C** | Commercial | SKU/supplier identity + cost-update events | Supplier contract management; long-term planning (merchant ERP if any) |
 | **D** | Distribution | Receipt / transfer / RTV / adjustment movements | Inventory valuation period close (merchant accounting) |
 | **F** | Finance | Invoice match (3-way), COGS posting events | GL, A/P, A/R, P&L (QuickBooks / Xero / Wave) |
-| **J** | Forecast & Order | Demand signal + forecast + ROP | Long-range merchandise planning (merchant tool if any) |
-| **S** | Space, Range, Display | Planogram authoring + ordering gate | Capital fixture planning (merchant capex tool if any) |
+| **J** | Orders | Demand signal + forecast + ROP | Long-range merchandise planning (merchant tool if any) |
+| **S** | Space | Planogram authoring + ordering gate | Capital fixture planning (merchant capex tool if any) |
 | **P** | Pricing & Promotion | Markdown + price-change events that revalue ledger | Price display at POS; pricing strategy (merchant's commercial team) |
-| **L** | Labor & Workforce | Time-clock entries + scheduled-shift movements | Payroll calculation, tax filing (Gusto / Paychex / ADP) |
-| **W** | Work Execution | Cross-domain exception detection + case management | Compliance reporting + audit (merchant's external auditors) |
+| **L** | Labor | Time-clock entries + scheduled-shift movements | Payroll calculation, tax filing (Gusto / Paychex / ADP) |
+| **W** | Execution | Cross-domain exception detection + case management | Compliance reporting + audit (merchant's external auditors) |
 
 ## What this means for product, sales, and engineering
 

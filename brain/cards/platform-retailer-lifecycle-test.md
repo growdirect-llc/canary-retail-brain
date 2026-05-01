@@ -6,16 +6,16 @@ domain: platform
 layer: cross-cutting
 feeds:
   - module-t
-  - module-j
-  - module-c
+  - module-o
+  - module-m
   - module-p
   - module-d
   - module-f
   - module-q
   - module-a
   - module-l
-  - module-w
-  - module-r
+  - module-e
+  - module-c
   - module-n
   - module-s
 receives: []
@@ -41,18 +41,18 @@ The test data mirrors the real sequence a retailer follows from onboarding to st
 ```
 1. Financial Plan          → Module F receives budget allocations, OTB wallet funded
 2. Merchandise Plan        → Module S receives range and space plan by category
-3. Buy Plan                → Module C receives commercial strategy, OTB committed
-4. Purchase Orders         → Module J generates orders from forecast + buy plan
+3. Buy Plan                → Module M receives commercial strategy, OTB committed
+4. Purchase Orders         → Module O generates orders from forecast + buy plan
 5. Distribution            → Module D receives POs, tracks inbound shipments
 6. Receiving               → Module A logs received inventory, reconciles against PO
 7. Price Setup             → Module P sets base prices and promotional rules
 8. Device Onboarding       → Module N registers POS devices and locations
 9. Workforce Schedule      → Module L schedules labor against forecast demand
 10. Transactions           → Module T processes sales, returns, voids across all types
-11. Customer Activity      → Module R logs loyalty earn, redemption, customer events
+11. Customer Activity      → Module C logs loyalty earn, redemption, customer events
 12. LP Events              → Module Q detects anomalies, Fox cases opened
-13. Work Execution         → Module W dispatches tasks triggered by module events
-14. Replenishment Cycle    → Module J generates next forecast, triggers reorder
+13. Execution         → Module E dispatches tasks triggered by module events
+14. Replenishment Cycle    → Module O generates next forecast, triggers reorder
 15. Period Close           → Module F reconciles actuals against plan, surfaces variances
 16. Measurement            → All modules report against their performance contracts
 ```
@@ -91,7 +91,7 @@ This is also how the platform self-improves in support mode: a new detection rul
 ## Invariants
 
 - Test data is fully populated. No nullable field left null unless the business rule explicitly permits it in production.
-- The lifecycle sequence runs in order. Module F must receive its budget allocation before Module C can commit OTB. The sequence is not parallelizable — it mirrors causal retail reality.
+- The lifecycle sequence runs in order. Module F must receive its budget allocation before Module M can commit OTB. The sequence is not parallelizable — it mirrors causal retail reality.
 - Every module has a baseline score on the lifecycle test before it can enter Hardening. The baseline is the SLA floor for Service Introduction.
 - The test harness is owned by the Controller agent. Individual domain agents may extend it for their module but cannot modify the core sequence.
 

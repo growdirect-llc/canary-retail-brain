@@ -6,14 +6,14 @@ domain: platform
 layer: edge
 feeds:
   - module-s
-  - module-j
+  - module-o
   - module-q
   - heartbeat-protocol
   - temporal-retail-mesh
 receives:
   - edge-fabric-overview
   - map-agent-l3
-tags: [heartbeat, shelf-edge, demand-signal, nano, iot, module-s, module-j, nats, inference]
+tags: [heartbeat, shelf-edge, demand-signal, nano, iot, module-s, module-o, nats, inference]
 status: approved
 last-compiled: 2026-04-28
 ---
@@ -97,7 +97,7 @@ The MAP agent decides.
 | Module | What it receives | What it does with it |
 |--------|-----------------|---------------------|
 | S — Space, Range & Display | FacingCount, GapDetected, LayoutCoords | Shelf compliance scoring, facing audit |
-| J — Forecast & Order | DepletionRatePH, EstHoursToZero | Intra-day forecast adjustment, replenishment trigger |
+| J — Orders | DepletionRatePH, EstHoursToZero | Intra-day forecast adjustment, replenishment trigger |
 | Q — Loss Prevention | ShelfAnomaly (product_moved, wrong_sku) | Fox case candidate — product movement without a transaction |
 
 ## Replenishment Trigger (Temporal Workflow)
@@ -108,8 +108,8 @@ threshold, the MAP_S agent starts a Temporal workflow:
 ```
 ShelfReplenishmentWorkflow
   → Activity: CheckBackroomStock (Module A)
-  → Activity: CommitReplenishmentTask (Module W — work dispatch)
-  → Activity: AdjustForecast (Module J — intra-day)
+  → Activity: CommitReplenishmentTask (Module E — work dispatch)
+  → Activity: AdjustForecast (Module O — intra-day)
   → Activity: UpdateShelfPlan (Module S — facing record)
 ```
 

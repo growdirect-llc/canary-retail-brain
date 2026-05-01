@@ -133,7 +133,7 @@ crosswalk and need resolution in the v0.6 schema-mapping pass on the
 Retail Spine:
 
 1. **`merchant_employees` ownership.** T reads this table but no module
-   currently owns curation. Likely the future L (Labor & Workforce)
+   currently owns curation. Likely the future L (Labor)
    module — but L is v3, and T needs the FK target to exist now.
    Today the table is populated as a side-effect of Square sync during
    onboarding, with no owning service.

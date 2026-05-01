@@ -1,4 +1,6 @@
 ---
+title: N — Device
+nav_order: 11
 classification: internal
 type: wiki
 sub-type: module-functional-decomposition
@@ -6,7 +8,7 @@ date: 2026-04-26
 last-compiled: 2026-04-26
 module: N
 solution-map-cell: ● Full direct (Counterpoint Store / Station / DeviceConfig / Workgroup / Tokenize — 6 endpoints; ~150 fields per PS_STR_CFG_PS)
-companion-modules: [T, Q, F, R, S]
+companion-modules: [T, Q, F, C, S]
 companion-substrate: [ncr-counterpoint-api-reference.md, ncr-counterpoint-endpoint-spine-map.md]
 companion-context: [garden-center-operating-reality.md, ncr-counterpoint-rapid-pos-relationship.md]
 companion-canary-spec: Canary-Retail-Brain/modules/N-device.md
@@ -160,7 +162,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 
 **Purpose.** `Workgroup` carries per-tenant numbering defaults (`NXT_TKT_NO`, `NXT_HOLD_NO`, `NXT_QUOT_NO`, `NXT_ORD_NO`, `NXT_LWY_NO`, `NXT_XFER_NO`, `NXT_RECVR_NO`, `NXT_PO_NO`, `NXT_PREQ_NO`, `NXT_RTV_NO`, `NXT_GFC_NO`, `NXT_AR_DOC_NO`) plus customer-template defaults that drive `POST /Customer` from the Counterpoint side. N surfaces these at tenant bootstrap; downstream consumers (T, R, J) reference them.
 
-**Companion cards.** `ncr-counterpoint-document-model` § DOC_TYP taxonomy (cross-references to NXT_*_NO), `canary-module-r-functional-decomposition.md` § R.1.6 (Workgroup template read).
+**Companion cards.** `ncr-counterpoint-document-model` § DOC_TYP taxonomy (cross-references to NXT_*_NO), `canary-module-c-functional-decomposition.md` § C.1.6 (Workgroup template read).
 
 ### L3 processes
 
@@ -168,8 +170,8 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 |---|---|---|---|
 | N.5.1 | Workgroup ingestion at tenant bootstrap | `GET /Workgroup/{WorkgroupID}` | Cached; rarely changes |
 | N.5.2 | Document-numbering generators surfaced | Per-Document-type next-number fields | Substrate for T's DOC_TYP routing + J's PO numbering |
-| N.5.3 | Customer-template defaults surfaced | Workgroup-driven defaults that influence customer creation | Cross-cut with R.1.6 |
-| N.5.4 | Per-`(tenant, company_alias)` workgroup partitioning | Multi-company tenants may have N workgroups | Mirrors R.1.8 multi-company namespace isolation |
+| N.5.3 | Customer-template defaults surfaced | Workgroup-driven defaults that influence customer creation | Cross-cut with C.1.6 |
+| N.5.4 | Per-`(tenant, company_alias)` workgroup partitioning | Multi-company tenants may have N workgroups | Mirrors C.1.8 multi-company namespace isolation |
 
 ### User stories
 
@@ -179,7 +181,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 
 ## N.6 — Cross-module substrate contracts
 
-**Purpose.** N supplies store-and-config substrate to Q (LP thresholds), T (DOC_TYP routing context), R (workgroup defaults), F (EDC + tokenization), and J (workflow defaults). This L2 is the contract registry. Symmetric to T.7 / R.6 / S.7 / F.7 / J.8b.
+**Purpose.** N supplies store-and-config substrate to Q (LP thresholds), T (DOC_TYP routing context), R (workgroup defaults), F (EDC + tokenization), and J (workflow defaults). This L2 is the contract registry. Symmetric to T.7 / C.6 / S.7 / F.7 / J.8b.
 
 ### L3 contracts (registry)
 
@@ -275,7 +277,7 @@ ASSUMPTION resolutions:
 
 **Drawer-session correlation (N.3) is the highest-frequency cross-module dependency.** Every Document carries the session keys; Q.2.4's entire family reads from this. The drawer-close event modeling (ASSUMPTION-N-02) is the single highest-leverage discovery for this module.
 
-**Workgroup multi-instance behavior matters for multi-company tenants** (Counterpoint allows N companies per API server, each potentially with their own Workgroup config). The R.1.8 / N.5.4 partitioning contract must hold across both modules.
+**Workgroup multi-instance behavior matters for multi-company tenants** (Counterpoint allows N companies per API server, each potentially with their own Workgroup config). The C.1.8 / N.5.4 partitioning contract must hold across both modules.
 
 ## Related
 
@@ -283,7 +285,7 @@ ASSUMPTION resolutions:
 - `canary-module-n-device.md` — L2 Canary code/schema crosswalk
 - `canary-module-q-functional-decomposition.md` — sister card; N.4 LP-threshold contracts drive Q.2.1 (discount-and-markdown) + Q.2.2 (void-and-return) + Q.2.4 (drawer-and-session)
 - `canary-module-t-functional-decomposition.md` — sister card; T.1.6 (multi-company routing) + T.7.5 (drawer-session linkage) cross with N.5.4 + N.3
-- `canary-module-r-functional-decomposition.md` — sister card; R.1.6 (workgroup template) + R.4.5 (PII via per-store profile slots) cross with N.5 + N.4.5
+- `canary-module-c-functional-decomposition.md` — sister card; C.1.6 (workgroup template) + C.4.5 (PII via per-store profile slots) cross with N.5 + N.4.5
 - `canary-module-f-functional-decomposition.md` — sister card; F.2.2 (per-store default tax) + F.5 (tokenization) cross with N.4.6 + N.2.4
 - `canary-module-s-functional-decomposition.md` — sister card; S.1.3 (per-location item enrichment) cross with N's location identity
 - `ncr-counterpoint-api-reference.md` — full Store / Station / DeviceConfig / Workgroup / Tokenize detail; "Store config field richness" section

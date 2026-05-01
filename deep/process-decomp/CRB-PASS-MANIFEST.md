@@ -20,13 +20,13 @@ status: IN PROGRESS — Phase 1/2 complete; Phase 3–5 pending
 |--------|------|---------------|--------|
 | T — Transaction Pipeline | `wiki/canary-module-t-functional-decomposition.md` | 2026-04-25 | CURRENT |
 | Q — Loss Prevention | `wiki/canary-module-q-functional-decomposition.md` | 2026-04-25 | CURRENT |
-| R — Customer | `wiki/canary-module-r-functional-decomposition.md` | 2026-04-25 | CURRENT |
+| C — Customer | `wiki/canary-module-c-functional-decomposition.md` | 2026-04-25 | CURRENT |
 | N — Device | `wiki/canary-module-n-functional-decomposition.md` | 2026-04-26 | CURRENT |
 | A — Asset Management | `wiki/canary-module-a-functional-decomposition.md` | 2026-04-26 | CURRENT |
-| C — Commercial / B2B | `wiki/canary-module-c-functional-decomposition.md` | 2026-04-26 | CURRENT |
+| C — Commercial / B2B | `wiki/canary-module-m-functional-decomposition.md` | 2026-04-26 | CURRENT |
 | D — Distribution | `wiki/canary-module-d-functional-decomposition.md` | 2026-04-26 | CURRENT |
 | F — Finance | `wiki/canary-module-f-functional-decomposition.md` | 2026-04-26 | CURRENT |
-| J — Forecast & Order | `wiki/canary-module-j-functional-decomposition.md` | 2026-04-26 | CURRENT |
+| J — Orders | `wiki/canary-module-o-functional-decomposition.md` | 2026-04-26 | CURRENT |
 | S — Space / Range / Display | `wiki/canary-module-s-functional-decomposition.md` | 2026-04-26 | CURRENT |
 | P — Pricing & Promotion | `wiki/canary-module-p-functional-decomposition.md` | 2026-04-26 | CURRENT |
 
@@ -34,8 +34,8 @@ status: IN PROGRESS — Phase 1/2 complete; Phase 3–5 pending
 
 | Module | File | Last Compiled | Status |
 |--------|------|---------------|--------|
-| L — Labor & Workforce | `wiki/canary-module-l-labor-workforce.md` | 2026-04-24 | NARRATIVE-ONLY — L3s derived from narrative; all tagged INFERRED |
-| W — Work Execution | `wiki/canary-module-w-work-execution.md` | 2026-04-24 | NARRATIVE-ONLY — L3s derived from narrative; all tagged INFERRED |
+| L — Labor | `wiki/canary-module-l-labor.md` | 2026-04-24 | NARRATIVE-ONLY — L3s derived from narrative; all tagged INFERRED |
+| W — Execution | `wiki/canary-module-e-execution.md` | 2026-04-24 | NARRATIVE-ONLY — L3s derived from narrative; all tagged INFERRED |
 
 ### CanaryGO Subsystem Reference (cmd/ packages)
 
@@ -47,7 +47,7 @@ Source: CanaryGO repo `cmd/` directory, inspected 2026-04-28.
 | `cmd/chirp` | Q — Loss Prevention (detection engine) |
 | `cmd/fox` | Q — Loss Prevention (case management) |
 | `cmd/alert` | Q — Loss Prevention (alert delivery) |
-| `cmd/customer` | R — Customer |
+| `cmd/customer` | C — Customer |
 | `cmd/asset` | A — Asset Management |
 | `cmd/inventory` | A / D — Asset lifecycle + Distribution snapshots |
 | `cmd/transfer` | D — Distribution (XFER) |
@@ -55,7 +55,7 @@ Source: CanaryGO repo `cmd/` directory, inspected 2026-04-28.
 | `cmd/returns` | T — Returns (RTV partial) |
 | `cmd/item` | S — Space / Range / Display (catalog) |
 | `cmd/pricing` | P — Pricing & Promotion |
-| `cmd/employee` | L — Labor & Workforce |
+| `cmd/employee` | L — Labor |
 | `cmd/analytics` | F — Finance (analytics) |
 | `cmd/report` | F — Finance (reporting) |
 | `cmd/owl` | AI analyst surface (cross-module) |
@@ -65,7 +65,7 @@ Source: CanaryGO repo `cmd/` directory, inspected 2026-04-28.
 | `cmd/bull` | Unknown — needs codebase inspection |
 | `cmd/hawk` | Unknown — needs codebase inspection |
 
-**Unmapped modules:** C (Commercial/B2B), J forecasting/OTB, W (Work Execution) — no dedicated cmd/ package found. Confirmed GAPs.
+**Unmapped modules:** C (Commercial/B2B), J forecasting/OTB, W (Execution) — no dedicated cmd/ package found. Confirmed GAPs.
 
 ---
 

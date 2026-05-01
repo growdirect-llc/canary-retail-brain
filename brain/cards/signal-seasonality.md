@@ -5,9 +5,9 @@ card-version: 1
 domain: local-market
 layer: local-market
 feeds:
-  - module-j
+  - module-o
   - module-p
-  - module-c
+  - module-m
 receives:
   - geography-hierarchy
   - category-hierarchy
@@ -48,13 +48,13 @@ Signal frequency: updated weekly by the local market agent. Major event windows 
 
 | Consumer | Action |
 |----------|--------|
-| **Module J (Forecast & Order)** | Applies demand multipliers to forecast buckets; triggers early replenishment orders ahead of peak windows |
+| **Module O (Orders)** | Applies demand multipliers to forecast buckets; triggers early replenishment orders ahead of peak windows |
 | **Module P (Pricing & Promotion)** | Schedules promotional windows aligned to seasonal peaks; suppresses discount promotions during high-demand periods |
-| **Module C (Commercial)** | Commercial strategy adjusts OTB allocation by season; adjusts range emphasis |
+| **Module M (Merchandising)** | Commercial strategy adjusts OTB allocation by season; adjusts range emphasis |
 
 ## Invariants
 
-- Seasonality multipliers are overlays, not overrides. Module J applies them to the base forecast; they do not replace the statistical model.
+- Seasonality multipliers are overlays, not overrides. Module O applies them to the base forecast; they do not replace the statistical model.
 - Local event overlays are GEO_DISTRICT scoped. They are not propagated to other districts.
 - The signal is forward-looking only. Historical seasonality patterns live in Module T's transaction history — the agent does not re-model the past.
 

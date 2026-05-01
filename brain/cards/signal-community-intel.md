@@ -5,7 +5,7 @@ card-version: 1
 domain: local-market
 layer: local-market
 feeds:
-  - module-c
+  - module-m
   - module-q
   - signal-seasonality
 receives:
@@ -27,8 +27,8 @@ The Chamber of Commerce knows when a new competitor is opening. The BBB tracks c
 
 | Component | Source | Frequency | Consumer |
 |-----------|--------|-----------|----------|
-| **Chamber bulletins** | Local Chamber of Commerce newsletter/feed | Weekly | Module C (Commercial) |
-| **Competitor opening/closing** | Chamber membership changes, permit notices, local press | Event-triggered | Module C (Commercial), Module J (Forecast) |
+| **Chamber bulletins** | Local Chamber of Commerce newsletter/feed | Weekly | Module M (Merchandising) |
+| **Competitor opening/closing** | Chamber membership changes, permit notices, local press | Event-triggered | Module M (Merchandising), Module O (Forecast) |
 | **BBB complaint patterns** | BBB public complaint feed for the district | Weekly | Module Q (LP), Legal & Compliance |
 | **Community notice board** | Local neighborhood platforms (Nextdoor, city boards) | Daily | Module Q (LP), footfall context |
 | **Local event calendar** | Community events driving footfall or traffic impact | Weekly | [[signal-seasonality]] overlay, Module T |
@@ -41,7 +41,7 @@ Community intelligence is context, not an alert stream. The local market agent d
 ```
 Community Sources (Chamber, BBB, boards, BID)
   → Local Market Agent (aggregation + triage)
-    → Module C (Commercial) [weekly digest + competitor events]
+    → Module M (Merchandising) [weekly digest + competitor events]
     → Module Q (LP) [BBB fraud patterns + BID security bulletins]
     → signal-seasonality [local event calendar overlay]
 ```
@@ -53,7 +53,7 @@ BBB data is an LP input, not a commercial one. Complaint spikes for a specific p
 ## Invariants
 
 - Community intelligence is a digest feed. It does not trigger automated actions — it informs agent reasoning.
-- Competitor intelligence (new openings, closures) is delivered to Module C as a context update. The Commercial agent decides whether it changes OTB, range, or promotional strategy.
+- Competitor intelligence (new openings, closures) is delivered to Module M as a context update. The Commercial agent decides whether it changes OTB, range, or promotional strategy.
 - BBB data is used at the pattern level only. Individual complaint details are not stored.
 - Community notice board monitoring is restricted to public boards. Closed neighborhood groups and private platforms are not monitored.
 

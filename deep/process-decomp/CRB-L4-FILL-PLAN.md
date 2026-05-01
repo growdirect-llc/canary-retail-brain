@@ -90,12 +90,12 @@ This is the L4 state machine spec for Q.3.2.
 
 ---
 
-### Module R — Customer Intelligence (Category A L3s)
+### Module C — Customer Intelligence (Category A L3s)
 
 | L3 ID | L3 Process | Python Source(s) | L4 Extraction Note |
 |-------|-----------|-----------------|-------------------|
-| R.2.1–R.2.4 | Customer risk scoring + behavioral pattern detection | `employee_risk_scoring.py`, `heatmap_scoring.py` | Risk scoring logic; heatmap_scoring.py provides the spatial/behavioral pattern model |
-| R.6.1–R.6.4 | Investigator surface (lookup, history, risk score, cross-module context) | `identity/tools.py`, `identity/external_id_resolver.py`, `fox/tools.py` | identity/tools = customer lookup MCP surface; fox/tools = cross-case subject context |
+| C.2.1–C.2.4 | Customer risk scoring + behavioral pattern detection | `employee_risk_scoring.py`, `heatmap_scoring.py` | Risk scoring logic; heatmap_scoring.py provides the spatial/behavioral pattern model |
+| C.6.1–C.6.4 | Investigator surface (lookup, history, risk score, cross-module context) | `identity/tools.py`, `identity/external_id_resolver.py`, `fox/tools.py` | identity/tools = customer lookup MCP surface; fox/tools = cross-case subject context |
 
 ---
 
@@ -133,11 +133,11 @@ This is the L4 state machine spec for Q.3.2.
 
 ---
 
-### Module C — B2B Detection (Category A L3s)
+### Module M — B2B Detection (Category A L3s)
 
 | L3 ID | L3 Process | Python Source(s) | L4 Extraction Note |
 |-------|-----------|-----------------|-------------------|
-| C.4.1–C.4.5 | B2B detection rules Q-C-01 through Q-C-05 | `chirp/rule_definitions.py`, `chirp/rule_engine.py` | B2B rules in RULE_CATALOG routed through Chirp pipeline; same execution path as standard Q rules |
+| M.4.1–M.4.5 | B2B detection rules Q-M-01 through Q-M-05 | `chirp/rule_definitions.py`, `chirp/rule_engine.py` | B2B rules in RULE_CATALOG routed through Chirp pipeline; same execution path as standard Q rules |
 
 ---
 
@@ -149,23 +149,23 @@ This is the L4 state machine spec for Q.3.2.
 
 ---
 
-### Module W — Work Execution (all 14 L3s)
+### Module E — Execution (all 14 L3s)
 
-**Key discovery:** `hawk/` in the Python prototype IS the W module. `cmd/hawk` in CanaryGO maps to W (Work Execution), not an unknown package. The `cmd/bull` unknown is still unresolved.
+**Key discovery:** `hawk/` in the Python prototype IS the W module. `cmd/hawk` in CanaryGO maps to W (Execution), not an unknown package. The `cmd/bull` unknown is still unresolved.
 
 | L2 | Python Source(s) | L4 Extraction Note |
 |----|-----------------|-------------------|
-| W.1–W.2 Exception detection + aggregation | `velocity_engine.py`, `chirp/rule_engine.py` | Cross-domain anomaly detection generalizes Chirp beyond LP |
-| W.3 Case CRUD (cross-domain Fox) | `hawk/case_service.py` | HawkCaseService extends Fox pattern to all domains; FSM: `advance_workflow()` |
-| W.4 Remediation routing | `hawk/tools.py` | `add_action()`, `advance_workflow()` — dispatch remediation to target module |
-| W.5 MCP investigator tools | `hawk/tools.py` | Full tool manifest: create_case, get_case, list_cases, advance_workflow, add_subject, add_action, generate_card, get_timeline, get_wizard_template |
+| E.1–E.2 Exception detection + aggregation | `velocity_engine.py`, `chirp/rule_engine.py` | Cross-domain anomaly detection generalizes Chirp beyond LP |
+| E.3 Case CRUD (cross-domain Fox) | `hawk/case_service.py` | HawkCaseService extends Fox pattern to all domains; FSM: `advance_workflow()` |
+| E.4 Remediation routing | `hawk/tools.py` | `add_action()`, `advance_workflow()` — dispatch remediation to target module |
+| E.5 MCP investigator tools | `hawk/tools.py` | Full tool manifest: create_case, get_case, list_cases, advance_workflow, add_subject, add_action, generate_card, get_timeline, get_wizard_template |
 
 **Hawk-specific additions vs Fox:**
 - `generate_card()` — narrative card generation (not in Fox)
 - `get_wizard_template()` — incident type wizard (not in Fox)
 - `advance_workflow()` — FSM with explicit workflow advancement (Fox uses `update_case_status()`)
 
-These additions are the W-over-Fox generalization — the L4 spec difference between Q.3 and W.3.
+These additions are the W-over-Fox generalization — the L4 spec difference between Q.3 and E.3.
 
 ---
 
@@ -178,15 +178,15 @@ L4 activities for Category B are derived from NCR Counterpoint REST API document
 | T.1 | Transaction ingestion pipeline | `GET /Documents` endpoint spec — request params, response schema, pagination, auth | PS_DOC + child table schema |
 | T.3 | DOC_TYP-keyed parsing | PS_DOC field catalog — DOC_TYP values, header fields, PS_DOC_LIN, PS_DOC_PMT, audit log | Counterpoint data dictionary |
 | T.6 | Historical backfill | `/Documents` with date range + offset params; sealed ledger replay spec | Internal replay design |
-| R.1 | Customer profile sync | `GET /Customers` endpoint — fields, pagination, delta sync | PS_CUST table schema |
-| R.3–R.5 | Customer search, history, privacy | `GET /Customers/{id}`, `/Documents?customer=` | Privacy model (internal) |
+| C.1 | Customer profile sync | `GET /Customers` endpoint — fields, pagination, delta sync | PS_CUST table schema |
+| C.3–C.5 | Customer search, history, privacy | `GET /Customers/{id}`, `/Documents?customer=` | Privacy model (internal) |
 | N.1–N.3 | Store config ingestion | `GET /StoreSettings` — ~150 fields from PS_STR_CFG_PS; device registration endpoints | PS_STR_CFG_PS field list |
 | S.1–S.4 | Item catalog (17 endpoints) | All IM_ITEM endpoints — PRIC_1–N, discount matrix, UOM, bundle rules | PS_DOC_LIN_PRICE schema |
 | D.1–D.2 | Inventory snapshot (7 endpoints) | `GET /Inventory` endpoints — location filter, delta processing | PS_INV table schema |
 | D.3 | Transfer lifecycle | XFER document type via `/Documents` — DOC_TYP=XFER | Transfer status fields |
 | F.1 | PayCode + TaxCode cache | `GET /PayCodes`, `GET /TaxCodes` — 24h cache strategy | Secure Pay registration API |
 | F.4–F.5 | Payment flow + Secure Pay | NSPTransaction schema, Secure Pay registration, tokenization flow | Counterpoint Secure Pay docs |
-| J.6–J.7 | Receiving + RTV lifecycle | RECVR and RTV document types via `/Documents` — DOC_TYP=RECVR, DOC_TYP=RTV | Receiving workflow fields |
+| O.6–O.7 | Receiving + RTV lifecycle | RECVR and RTV document types via `/Documents` — DOC_TYP=RECVR, DOC_TYP=RTV | Receiving workflow fields |
 | P.1 | Price observation | IM_ITEM price fields — PRIC_1 through PRIC_N, discount matrix | PS_DOC_LIN_PRICE |
 
 **Note on T.2.1–T.2.2 (receipt stamp + dedup):** These are infrastructure L3s. L4 spec comes from internal idempotency design, not Counterpoint docs.
@@ -199,12 +199,12 @@ No workflow L4s required. For each Category C module, specify the export API end
 
 | Module | Category C L3s | Export API Surface |
 |--------|---------------|-------------------|
-| J.1–J.5, J.8 | Forecasting, ROP, OTB, PO engine | `GET /api/v1/forecast/{item_id}` — historical demand + projected units + confidence interval. `GET /api/v1/inventory/replenishment-candidates` — items below ROP. `GET /api/v1/open-to-buy/{period}` — OTB balance. Planning tools call these; Canary doesn't own the PO. |
-| J.4 | PO suggestion (export) | `GET /api/v1/suggested-orders` — suggested quantity per item per vendor. J.4.4 write-back (POST /Document to Counterpoint) is v2+ only — default posture is export. |
+| O.1–O.5, O.8 | Forecasting, ROP, OTB, PO engine | `GET /api/v1/forecast/{item_id}` — historical demand + projected units + confidence interval. `GET /api/v1/inventory/replenishment-candidates` — items below ROP. `GET /api/v1/open-to-buy/{period}` — OTB balance. Planning tools call these; Canary doesn't own the PO. |
+| O.4 | PO suggestion (export) | `GET /api/v1/suggested-orders` — suggested quantity per item per vendor. O.4.4 write-back (POST /Document to Counterpoint) is v2+ only — default posture is export. |
 | F.3, F.6 | Stock ledger, financial reporting | `GET /api/v1/analytics/inventory-value` — inventory position by location/category. Financial reporting stays in QuickBooks/Sage. |
 | P.3–P.6 | Markdown, clearance, comp pricing, promotion calendar | `GET /api/v1/promotions` — promotion calendar read (for Q LP accuracy). Markdown and clearance workflows stay in Counterpoint. |
 | S.6 | Range planning | `GET /api/v1/analytics/range-performance` — sell-through, turn, GMROI by item/category. Range decisions stay with buyer. |
-| C.1–C.3, C.5 | B2B account mgmt, credit/invoicing, AR | `GET /api/v1/b2b/analytics` — B2B transaction patterns for LP context. Account and AR management stays in Counterpoint + QuickBooks. |
+| M.1–M.3, M.5 | B2B account mgmt, credit/invoicing, AR | `GET /api/v1/b2b/analytics` — B2B transaction patterns for LP context. Account and AR management stays in Counterpoint + QuickBooks. |
 | L.1–L.2, L.4–L.5 | Employee sync, scheduling, payroll | `GET /api/v1/analytics/labor-productivity` — transactions/hour, productivity signals for LP. Scheduling and payroll stay in ADP/Homebase/Gusto. |
 
 ---
@@ -226,13 +226,13 @@ Spec Category B L4s from Counterpoint API docs. Priority order:
 
 1. **T.1 Transaction ingestion** (T.1.1–T.1.9) — `GET /Documents` is the foundation everything runs on.
 2. **S.1–S.4 Item catalog** (17 endpoints) — needed for Q item context and LP accuracy.
-3. **R.1 Customer sync** (R.1.1–R.1.5) — needed for investigator surface.
+3. **C.1 Customer sync** (C.1.1–C.1.5) — needed for investigator surface.
 4. **D.1–D.2 Inventory snapshot** (7 endpoints) — needed for transfer-loss analytics.
 
 ### Week 3+ — Remaining Track A + Track B
 
-- Track A: R.2.x risk scoring, D.4–D.5 analytics, F.2.x LP analytics, S.5.x drift, P.2.x promo inference
-- Track B: N.1–N.3 store config, F.1 PayCode/TaxCode, F.4–F.5 payment flow, J.6–J.7 receiving/RTV
+- Track A: C.2.x risk scoring, D.4–D.5 analytics, F.2.x LP analytics, S.5.x drift, P.2.x promo inference
+- Track B: N.1–N.3 store config, F.1 PayCode/TaxCode, F.4–F.5 payment flow, O.6–O.7 receiving/RTV
 - Track C: Export API specs (low urgency — needed for v1.1, not launch)
 
 ### Blocked until ASSUMPTION-A-01 resolved
@@ -263,14 +263,14 @@ Derived from Python prototype service directory, to inform CanaryGO `cmd/` packa
 | `chirp/` | `cmd/chirp` | Q (detection) | DOCUMENTED |
 | `fox/` | `cmd/fox` | Q (case mgmt) | DOCUMENTED |
 | `alerts/` + `alert_lifecycle.py` | `cmd/alert` | Q (alert delivery) | DOCUMENTED |
-| `hawk/` | `cmd/hawk` | **W (Work Execution)** | **CONFIRMED HERE** — hawk IS the W module |
+| `hawk/` | `cmd/hawk` | **W (Execution)** | **CONFIRMED HERE** — hawk IS the W module |
 | `identity/` | `cmd/identity` | Auth/tenant infra | DOCUMENTED |
 | `evidence_chain.py` | `cmd/tsp` (sub1) | T.2.x (evidentiary) | DOCUMENTED |
-| `velocity_engine.py` | `cmd/analytics` or `cmd/chirp` | D.4, S.5, W.1 | INFERRED — single engine, multi-module use |
+| `velocity_engine.py` | `cmd/analytics` or `cmd/chirp` | D.4, S.5, E.1 | INFERRED — single engine, multi-module use |
 | `impact_scoring.py` | `cmd/alert` | Q.4 (alert impact) | INFERRED |
 | `condor/` | `cmd/owl`? | Cross-module intelligence | INFERRED — benchmarks + external intel |
 | `analytics/` | `cmd/analytics` | F, D, S analytics | DOCUMENTED |
-| `employee_risk_scoring.py` | `cmd/employee` | R.2, L.3 | INFERRED |
+| `employee_risk_scoring.py` | `cmd/employee` | C.2, L.3 | INFERRED |
 | `notification_service.py` + `notification_dispatcher.py` | `cmd/alert` | Q.5 | INFERRED |
 | `health_check/` | `cmd/edge`? | N.5 device health | INFERRED — confirms edge = N module |
 

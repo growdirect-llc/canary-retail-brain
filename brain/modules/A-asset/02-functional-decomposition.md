@@ -179,7 +179,7 @@ ASSUMPTION resolutions:
 - `canary-module-s-functional-decomposition.md` — sister card; A.1.1 reads from S's item master publication
 - `canary-module-d-functional-decomposition.md` — sister card; A.2.1 reads from D.6.1/D.6.3 movement records
 - `canary-module-q-functional-decomposition.md` — sister card; A.3.1 registry is Q's allow-list for detection rules
-- `canary-module-j-functional-decomposition.md` — sister card; A.3.1 excludes non-saleable items from J's replenishment scope
+- `canary-module-o-functional-decomposition.md` — sister card; A.3.1 excludes non-saleable items from J's replenishment scope
 - `ncr-counterpoint-api-reference.md` — IM_ITEM schema context (ITEM_TYP field location)
 - `ncr-counterpoint-endpoint-spine-map.md` — A-column placement (derived, no dedicated endpoints)
 - `garden-center-operating-reality.md` — fixture and display-material context for L&G

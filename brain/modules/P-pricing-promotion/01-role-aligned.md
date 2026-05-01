@@ -83,13 +83,13 @@ Projected SDD structure (future):
 ## Related
 
 - [[../projects/RetailSpine|Retail Spine MOC]]
-- [[canary-module-c-commercial|C (Commercial)]]
+- [[canary-module-m-merchandising|C (Commercial)]]
 - [[canary-module-d-distribution|D (Distribution)]]
 - [[canary-module-f-finance|F (Finance)]]
-- [[canary-module-j-forecast-order|J (Forecast & Order)]]
-- [[canary-module-s-space-range-display|S (Space, Range, Display)]]
-- [[canary-module-l-labor-workforce|L (Labor & Workforce)]]
-- [[canary-module-w-work-execution|W (Work Execution)]]
+- [[canary-module-o-orders|J (Orders)]]
+- [[canary-module-s-space|S (Space)]]
+- [[canary-module-l-labor|L (Labor)]]
+- [[canary-module-e-execution|W (Execution)]]
 - [[../platform/RetailSpine|Retail Spine — Ledger relationships]]
 - [[../platform/stock-ledger|Stock Ledger — Perpetual-Inventory Movement Ledger]]
 - [[../platform/retail-accounting-method|Retail Accounting Method — RIM, Cost Method, Open To Buy]]

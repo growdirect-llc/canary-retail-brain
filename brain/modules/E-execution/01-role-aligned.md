@@ -3,20 +3,20 @@ title: W — Role Alignment
 date: 2026-04-24
 type: wiki
 status: active
-tags: [canary, retail-spine, module-w, work-execution, exception-detection, case-management, cross-domain, v3]
+tags: [canary, retail-spine, module-e, work-execution, exception-detection, case-management, cross-domain, v3]
 sources:
-  - Canary-Retail-Brain/modules/W-work-execution.md
+  - Canary-Retail-Brain/modules/E-execution.md
   - Canary-Retail-Brain/modules/Q-loss-prevention.md
   - Canary-Retail-Brain/platform/stock-ledger.md
   - Canary-Retail-Brain/platform/spine-13-prefix.md
 last-compiled: 2026-04-24
 ----
 
-# Canary Module — W (Work Execution)
+# Canary Module — W (Execution)
 
 ## Summary
 
-W (Work Execution) is the cross-domain exception detection and case management surface. **v3 design — implementation deferred.** This wiki article is the Canary-specific crosswalk for the v3 W module. The canonical, vendor-neutral module spec lives at `Canary-Retail-Brain/modules/W-work-execution.md`.
+W (Execution) is the cross-domain exception detection and case management surface. **v3 design — implementation deferred.** This wiki article is the Canary-specific crosswalk for the v3 W module. The canonical, vendor-neutral module spec lives at `Canary-Retail-Brain/modules/E-execution.md`.
 
 W is the capstone of the Canary Retail Spine. It generalizes Q's (Loss Prevention) Chirp+Fox pattern across all domains: inventory, commercial, pricing, labor, and space. W detects exceptions everywhere and correlates them. When a customer appears in both a fraud alert (Q) and a return-abuse pattern (P), W connects them in one case, not two. W is the retail operating system's immune system.
 
@@ -86,21 +86,21 @@ Projected SDD structure (future):
 
 - [[../projects/RetailSpine|Retail Spine MOC]]
 - [[canary-module-q-loss-prevention|Q (Loss Prevention) — reference implementation]]
-- [[canary-module-s-space-range-display|S (Space, Range, Display)]]
+- [[canary-module-s-space|S (Space)]]
 - [[canary-module-p-pricing-promotion|P (Pricing & Promotion)]]
-- [[canary-module-l-labor-workforce|L (Labor & Workforce)]]
+- [[canary-module-l-labor|L (Labor)]]
 - [[canary-module-d-distribution|D (Distribution)]]
-- [[canary-module-j-forecast-order|J (Forecast & Order)]]
+- [[canary-module-o-orders|J (Orders)]]
 - [[canary-module-f-finance|F (Finance)]]
 - [[../platform/RetailSpine|Retail Spine — Module relationships]]
 - [[../platform/stock-ledger|Stock Ledger — Perpetual-Inventory Movement Ledger]]
 
 ## Sources
 
-- `Canary-Retail-Brain/modules/W-work-execution.md` — canonical module spec
+- `Canary-Retail-Brain/modules/E-execution.md` — canonical module spec
 - `Canary-Retail-Brain/modules/Q-loss-prevention.md` — Chirp detection and Fox case management reference
 - `Canary-Retail-Brain/platform/spine-13-prefix.md` — spine architecture and module dependencies
 
 ---
 
-**Status:** Canary module W is design-phase. No code yet. Foundationally dependent on Q's Fox evidence-chain infrastructure. Ready for SDD drafting and schema design when Q's implementation is stable and v2 modules (C/D/F/J) are shipping.
+**Status:** Canary module E is design-phase. No code yet. Foundationally dependent on Q's Fox evidence-chain infrastructure. Ready for SDD drafting and schema design when Q's implementation is stable and v2 modules (C/D/F/J) are shipping.

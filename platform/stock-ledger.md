@@ -159,8 +159,8 @@ Modules that post movements to the ledger:
 
 Modules that read the ledger to drive their own logic:
 
-- **J (Forecast & Order)** — reads movement history to derive demand and forecast; reads SOH to validate replenishment parameters
-- **S (Space, Range, Display)** — reads SOH and movement history to validate planogram capacity constraints; enforces ordering gate (item cannot be ordered until ledger is ready)
+- **J (Orders)** — reads movement history to derive demand and forecast; reads SOH to validate replenishment parameters
+- **S (Space)** — reads SOH and movement history to validate planogram capacity constraints; enforces ordering gate (item cannot be ordered until ledger is ready)
 - **F (Finance)** — reads the ledger at period close to drive GL posting, OTB reconciliation, and margin calculation
 
 ### Reconcilers
@@ -168,7 +168,7 @@ Modules that read the ledger to drive their own logic:
 Modules that validate ledger state against external sources:
 
 - **F (Finance)** — Invoice Matching function: reconciles supplier invoice against receipts; posts cost variance if amounts don't match within tolerance
-- **W (Work Execution)** — Exception detection: reads ledger movements and flags anomalies (impossible quantities, inconsistent timing, reason codes outside policy)
+- **W (Execution)** — Exception detection: reads ledger movements and flags anomalies (impossible quantities, inconsistent timing, reason codes outside policy)
 
 This three-layer pattern is how the ledger becomes the substrate rather than just another system. Every module knows how to speak to it; no module has direct dependencies on other modules. The ledger is the message bus.
 
@@ -188,11 +188,11 @@ Each of the 13 modules in Canary Retail's capability spine has a defined role on
 | **C** | Commercial | Publisher & Analyst | Cost-update events | Reads item master lookups |
 | **D** | Distribution | Publisher | Receipt, transfer, RTV, adjustment | Reads SOH, movement history |
 | **F** | Finance | Reconciler | GL posting, period-close aggregation | Reads entire ledger for reporting |
-| **J** | Forecast & Order | Subscriber | None (generates POs, not ledger moves) | Reads movement history, SOH, replenishment params |
-| **S** | Space, Range, Display | Subscriber & Gatekeeper | None (drives ordering gate) | Reads SOH for capacity validation |
+| **J** | Orders | Subscriber | None (generates POs, not ledger moves) | Reads movement history, SOH, replenishment params |
+| **S** | Space | Subscriber & Gatekeeper | None (drives ordering gate) | Reads SOH for capacity validation |
 | **P** | Pricing & Promotion | Publisher | Price-change events | Reads retail values |
-| **L** | Labor & Workforce | Dimension | None (people scheduling) | None (references T movements) |
-| **W** | Work Execution | Reconciler | Adjustment (exceptions) | Reads all modules' movements |
+| **L** | Labor | Dimension | None (people scheduling) | None (references T movements) |
+| **W** | Execution | Reconciler | Adjustment (exceptions) | Reads all modules' movements |
 
 ---
 

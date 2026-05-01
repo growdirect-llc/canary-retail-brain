@@ -7,7 +7,7 @@ layer: local-market
 feeds:
   - module-a
   - module-f
-  - module-c
+  - module-m
   - module-q
 receives:
   - geography-hierarchy
@@ -31,15 +31,15 @@ For SMB retailers in managed properties, the landlord relationship is a material
 | Component | Description | Consumer |
 |-----------|-------------|----------|
 | **Mall/property security** | Shared incident protocols, joint CCTV access agreements, shared radio channels | Module Q (LP) |
-| **Property security bulletins** | Landlord-issued threat advisories, event notifications, access changes | Module Q (LP), Module J (Forecast — footfall impact) |
-| **Anchor tenant events** | Major anchor tenant sales, closures, or events that drive or suppress footfall | Module J (Forecast), Module C (Commercial) |
+| **Property security bulletins** | Landlord-issued threat advisories, event notifications, access changes | Module Q (LP), Module O (Forecast — footfall impact) |
+| **Anchor tenant events** | Major anchor tenant sales, closures, or events that drive or suppress footfall | Module O (Forecast), Module M (Merchandising) |
 
 ### Financial & Lease
 
 | Component | Description | Consumer |
 |-----------|-------------|----------|
 | **TI allowance tracking** | Tenant improvement allowance negotiated in lease — drawdown milestones, remaining balance, expiry date | Module A (Asset Management), Module F (Finance) |
-| **CAM charge forecast** | Common area maintenance charge projections and actuals vs. lease estimate | Module F (Finance), Module C (Commercial) |
+| **CAM charge forecast** | Common area maintenance charge projections and actuals vs. lease estimate | Module F (Finance), Module M (Merchandising) |
 | **Lease renewal window** | Notification when lease renewal decision window opens (typically 6–12 months before expiry) | Module F (Finance), Legal & Compliance |
 | **Lease escalation triggers** | CPI or fixed-rate rent escalation events per lease terms | Module F (Finance) |
 
@@ -51,7 +51,7 @@ Property/Landlord Sources (property mgmt portal, lease documents, bulletin feeds
     → Module Q [security + incident bulletins]
     → Module A (Asset Management) [TI drawdown, lease lifecycle]
     → Module F (Finance) [CAM actuals, escalation triggers, lease renewal]
-    → Module C (Commercial) [anchor tenant events, footfall context]
+    → Module M (Merchandising) [anchor tenant events, footfall context]
 ```
 
 ## Ownership Boundary

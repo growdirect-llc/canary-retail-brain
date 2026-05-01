@@ -88,7 +88,7 @@ Selling, General & Administrative is the catch-all that absorbs every
 overhead element merchants do not bother to decompose. Satoshi-precision
 SG&A decomposes:
 
-- **Labor cost per shift per minute** — driven by [[../modules/L-labor-workforce|v3.L Labor]]
+- **Labor cost per shift per minute** — driven by [[../modules/L-labor|v3.L Labor]]
   module's time-clock event stream. Each minute on the clock posts a
   labor-cost event on the perpetual ledger at the employee's precise
   rate (with shift differentials, overtime, etc.) in millisatoshis.

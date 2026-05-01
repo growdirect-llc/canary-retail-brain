@@ -5,7 +5,7 @@ type: wiki
 status: active
 tags: [canary, retail-spine, module-s, space-range-display, planogram, fixture, shelf-edge-label, ordering-gate, v3]
 sources:
-  - Canary-Retail-Brain/modules/S-space-range-display.md
+  - Canary-Retail-Brain/modules/S-space.md
   - Canary-Retail-Brain/platform/stock-ledger.md
   - GrowDirect/Brain/wiki/intactix-canonical-validation.md
   - GrowDirect/Brain/wiki/tesco-technical-library.md
@@ -13,11 +13,11 @@ sources:
 last-compiled: 2026-04-24
 ----
 
-# Canary Module — S (Space, Range, Display)
+# Canary Module — S (Space)
 
 ## Summary
 
-S (Space, Range, Display) owns planograms, fixture inventory, shelf-edge label compilation, and the ordering gate that prevents items from being purchased until they have a physical place on the shelf. **v3 design — implementation deferred.** This wiki article is the Canary-specific crosswalk for the v3 S module. The canonical, vendor-neutral module spec lives at `Canary-Retail-Brain/modules/S-space-range-display.md`.
+S (Space) owns planograms, fixture inventory, shelf-edge label compilation, and the ordering gate that prevents items from being purchased until they have a physical place on the shelf. **v3 design — implementation deferred.** This wiki article is the Canary-specific crosswalk for the v3 S module. The canonical, vendor-neutral module spec lives at `Canary-Retail-Brain/modules/S-space.md`.
 
 S closes the merchandising-to-operations gap that every SMB retailer faces: the buyer commits to a PO, the store receives the goods, and then nobody knows where to put them. S inverts this by requiring planogram assignment *before* order entry. The ordering gate is the operational discipline that closes the supply chain at the shelf.
 
@@ -84,11 +84,11 @@ Projected SDD structure (future):
 ## Related
 
 - [[../projects/RetailSpine|Retail Spine MOC]]
-- [[canary-module-c-commercial|C (Commercial)]]
+- [[canary-module-m-merchandising|C (Commercial)]]
 - [[canary-module-d-distribution|D (Distribution)]]
-- [[canary-module-j-forecast-order|J (Forecast & Order)]]
+- [[canary-module-o-orders|J (Orders)]]
 - [[canary-module-p-pricing-promotion|P (Pricing & Promotion)]]
-- [[canary-module-w-work-execution|W (Work Execution)]]
+- [[canary-module-e-execution|W (Execution)]]
 - [[../platform/RetailSpine|Retail Spine — Ledger relationships]]
 - [[../platform/stock-ledger|Stock Ledger — Perpetual-Inventory Movement Ledger]]
 - [[intactix-canonical-validation|Intactix 2006 — Canonical Validation]]
@@ -98,7 +98,7 @@ Projected SDD structure (future):
 
 ## Sources
 
-- `Canary-Retail-Brain/modules/S-space-range-display.md` — canonical module spec
+- `Canary-Retail-Brain/modules/S-space.md` — canonical module spec
 - `GrowDirect/Brain/wiki/intactix-canonical-validation.md` — IKB and Space Planning reference
 - `GrowDirect/Brain/wiki/tesco-technical-library.md` — TTL and SRD reference
 - `GrowDirect/Brain/wiki/srd-shelf-edge-label.md` — SEL compilation context

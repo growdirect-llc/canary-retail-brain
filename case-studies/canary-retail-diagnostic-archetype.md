@@ -340,8 +340,8 @@ The merchant scores 3.2 on a 1–5 scale, **below peer median of 3.8**. Feedback
 **Root-Cause Navigator:**
 - Perpetual Ledger Accuracy (Module D foundation)
 - Demand Forecasting & Replenishment Triggers (Module D pipeline)
-- Multi-Location Inventory Visibility (Module J foundation)
-- Order-Fulfillment Orchestration (Module J pipeline)
+- Multi-Location Inventory Visibility (Module O foundation)
+- Order-Fulfillment Orchestration (Module O pipeline)
 - Shrink Variance & Root-Cause Analysis (Module F: Financial Control)
 
 **Prize Summary:** £1.2m–£1.8m annual opportunity from building perpetual ledger + automated replenishment + fulfillment orchestration (Canary v2 ring: D + J modules).
@@ -403,7 +403,7 @@ The merchant scores 3.2 on a 1–5 scale, **below peer median of 3.8**. Feedback
 
 ---
 
-#### Slide 3: Multi-Location Inventory Visibility (Module J Foundation)
+#### Slide 3: Multi-Location Inventory Visibility (Module O Foundation)
 
 **Findings:**
 - Current state: Each store operates independently. No cross-location visibility of inventory. If Store A is out of a popular size/color, there is no way to know Store B has overstock of the same.
@@ -424,7 +424,7 @@ The merchant scores 3.2 on a 1–5 scale, **below peer median of 3.8**. Feedback
 
 ---
 
-#### Slide 4: Order-Fulfillment Orchestration (Module J Pipeline)
+#### Slide 4: Order-Fulfillment Orchestration (Module O Pipeline)
 
 **Findings:**
 - Current state: No customer order or backorder tracking. When customer asks "Can I pre-order?" or "When will you restock?", staff has no answer. Order is taken manually (notebook) and never followed up.
@@ -482,7 +482,7 @@ The merchant scores 3.2 on a 1–5 scale, **below peer median of 3.8**. Feedback
 
 **Recommendation 2:** Build Canary Module D demand forecast + automated replenishment triggering. Phase 2, Q2–Q4 2027. Effort: 16–20 weeks development + 6 weeks merchant implementation.
 
-**Recommendation 3:** Build Canary Module J (Order Fulfillment Orchestration) with customer order intake, tracking, and notification. Phase 2, Q3–Q4 2027 + Phase 3 Q1 2028 (extended rollout).
+**Recommendation 3:** Build Canary Module O (Order Fulfillment Orchestration) with customer order intake, tracking, and notification. Phase 2, Q3–Q4 2027 + Phase 3 Q1 2028 (extended rollout).
 
 **Recommendation 4:** Establish weekly inventory operations review (Perpetual Ledger + Replenishment Forecast + Inter-Location Transfers + Shrink Root-Cause). Phase 2, Q1 2027 onward. Owner: Ops Manager + Finance.
 
@@ -500,7 +500,7 @@ All recommendations scored on prize impact (3 axes) and implementation cost (2 a
 | 2 | Loss Prevention | Quarterly loss-review audit | ●●● | ●● | ● | ● | ● |
 | 3 | Inventory | Build perpetual ledger (Module D) | ●● | ●●● | ●●● | ●●● | ●●● |
 | 4 | Inventory | Build demand forecast + auto-replenishment | ●● | ●●●● | ●● | ●●● | ●●● |
-| 5 | Inventory | Build fulfillment orchestration (Module J) | ● | ●●●● | ●●● | ●●● | ●●● |
+| 5 | Inventory | Build fulfillment orchestration (Module O) | ● | ●●●● | ●●● | ●●● | ●●● |
 | 6 | Inventory | Establish weekly ops review | ● | ●●● | ●●● | ● | ● |
 | 7 | Future | Sales margin analytics (Module S, Phase 3) | ● | ●●● | ●●● | ●●● | ●●● |
 
@@ -570,13 +570,13 @@ All recommendations scored on prize impact (3 axes) and implementation cost (2 a
 
 #### Phase 2: "What builds the system?" (Q1–Q4 2027)
 
-**Objectives:** Build perpetual ledger (Module D), implement demand forecast + auto-replenishment, establish order fulfillment (Module J).
+**Objectives:** Build perpetual ledger (Module D), implement demand forecast + auto-replenishment, establish order fulfillment (Module O).
 
 **Milestones:**
 - Q1 2027: Canary Module D (Perpetual Ledger) development kickoff. Merchant readiness assessment (POS firmware, data quality).
 - Q2 2027: Module D deployed to 2 pilot stores (Store A, Store B). Daily reconciliation begins; variance tracking by SKU + store.
 - Q3 2027: Module D scaled to all 8 stores. Demand forecast model trained on historical POS data (13-week rolling forecast, per SKU).
-- Q4 2027: Automated replenishment triggers live; PO generation automated. Order Fulfillment (Module J) development complete.
+- Q4 2027: Automated replenishment triggers live; PO generation automated. Order Fulfillment (Module O) development complete.
 
 **Expected Benefit (Phase 2):** £800k–£1.2m cumulative annual (full inventory/replenishment opportunity realized).
 
@@ -598,12 +598,12 @@ All recommendations scored on prize impact (3 axes) and implementation cost (2 a
 
 #### Phase 3: "What's the end state?" (2028+)
 
-**Objectives:** Margin analytics (Module S), pricing intelligence (Module P), multi-channel fulfillment foundation (Module W).
+**Objectives:** Margin analytics (Module S), pricing intelligence (Module P), multi-channel fulfillment foundation (Module E).
 
 **Milestones:**
 - Q1 2028: Module S (Sales Margin Analytics) deployed; real-time margin visibility by product, category, store.
 - Q2 2028: Module P (Pricing Intelligence) MVP; automated markdown recommendations based on velocity + margin.
-- Q3–Q4 2028: Multi-channel fulfillment foundation (Module W) planning and design.
+- Q3–Q4 2028: Multi-channel fulfillment foundation (Module E) planning and design.
 
 **Expected Benefit (Phase 3):** £280k–£400k incremental annual (margin analytics + pricing intelligence).
 
@@ -634,12 +634,12 @@ PHASE 1: QUICK WINS — What are our quick wins?
                                          ├─ Demand Forecast Training ─────────────────────→
                                          │  Auto-Replenishment Live ──────────────────→
                                          │
-                                         └─ Module J Dev ────────────────────────→
+                                         └─ Module O Dev ────────────────────────→
 
                                                                              PHASE 3: END STATE
                                                                                 ├─ Module S ──→
                                                                                 ├─ Module P ──→
-                                                                                └─ Module W planning
+                                                                                └─ Module E planning
 
 Milestones: Chirp Live (Q2) | Module D Pilot (Q2 27) | Module D Scale (Q3 27) | Auto-Replenishment (Q4 27)
 ```
@@ -731,7 +731,7 @@ If the three-phase roadmap is executed successfully:
 
 #### Phase 3 Planning (2027)
 
-Deferred until Phase 2 completion (Q4 2027). Focus will be on Module S (Margin Analytics) design and Module W (Multi-Channel Fulfillment) roadmap.
+Deferred until Phase 2 completion (Q4 2027). Focus will be on Module S (Margin Analytics) design and Module E (Multi-Channel Fulfillment) roadmap.
 
 ---
 

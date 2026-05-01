@@ -97,7 +97,7 @@ The agents they needed did not exist. The orchestration was infrastructure-drive
 | NCR 4690/4680 adapter (unfinished) | Bull adapter — NCR Counterpoint REST (Phase I complete) |
 | Human-mediated response | Autonomous MAP agent decision + Temporal dispatch |
 | Demand signal → central forecast | Shelf-edge Nano inference → ShelfHeartbeat → MAP_S + MAP_J |
-| Promotions pushed from center | Work tasks dispatched from edge (Module W) |
+| Promotions pushed from center | Work tasks dispatched from edge (Module E) |
 
 The infrastructure gap is closed. NATS + Go + Temporal delivers what BizTalk + MSMQ + WAN could not.
 

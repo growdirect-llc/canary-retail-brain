@@ -6,8 +6,8 @@ domain: local-market
 layer: local-market
 feeds:
   - module-t
-  - module-j
-  - module-c
+  - module-o
+  - module-m
   - module-p
 receives:
   - geography-hierarchy
@@ -53,14 +53,14 @@ Weather is the fastest-moving demand modifier available to a retailer. A cold sn
 | Consumer | Signal | Action |
 |----------|--------|--------|
 | **Module T (Transaction Pipeline)** | Operational — footfall modifier | Adjusts expected transaction volume for the day; surfaces to store manager dashboard |
-| **Module J (Forecast)** | Operational — 7-day forecast | Adjusts replenishment timing and safety stock for weather-sensitive categories |
-| **Module C (Commercial)** | SEO — category search shift | Triggers content/promotion opportunity aligned to current search intent |
+| **Module O (Forecast)** | Operational — 7-day forecast | Adjusts replenishment timing and safety stock for weather-sensitive categories |
+| **Module M (Merchandising)** | SEO — category search shift | Triggers content/promotion opportunity aligned to current search intent |
 | **Module P (Pricing & Promotion)** | SEO — trending search terms | Surfaces high-demand SKUs for promotional consideration when search demand is rising |
 
 ## Invariants
 
 - The SEO signal is a content opportunity flag, not a pricing instruction. Module P decides whether to act — the signal surfaces the opportunity.
-- Cold-chain alerts are event-triggered, not scheduled. They must arrive at Module J and the VAR ops team within 30 minutes of threshold breach.
+- Cold-chain alerts are event-triggered, not scheduled. They must arrive at Module O and the VAR ops team within 30 minutes of threshold breach.
 - Zone SEO scope is GEO_DISTRICT. Narrower scoping (per-store search trends) is not supported at SMB data volumes.
 
 ## Related

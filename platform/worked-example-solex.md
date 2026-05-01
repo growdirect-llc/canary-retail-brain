@@ -218,19 +218,19 @@ Each gap maps to a Canary Retail module on the spine:
   invoice and PO flow, supplier compliance.
 - **Multi-location inventory** → **D** (Distribution) module:
   warehouse + store + transit tiers, store-to-store transfers.
-- **On-order inventory** → **J** (Forecast & Order) module: PO /
+- **On-order inventory** → **J** (Orders) module: PO /
   replenishment surface closes the open-order dimension.
-- **Planogram / space management** → **S** (Space, Range, Display)
+- **Planogram / space management** → **S** (Space)
   module: for physical-store customers Canary Retail also serves.
 - **Vendor performance / compliance** → **F** (Finance) + vendor-
   side of Merchandising.
 - **Promotion engine** → **P** (Pricing & Promotion) module:
   extends Solex's promo-code stub into full promotion engine.
-- **Staffing** → **L** (Labor & Workforce) module: employee
+- **Staffing** → **L** (Labor) module: employee
   surface, scheduling, time tracking.
 - **Customer demographics beyond geo** → **R** (Customer) module
   extension when customer-data-platform integrations land.
-- **Multi-domain work execution** → **W** (Work Execution) module:
+- **Multi-domain work execution** → **W** (Execution) module:
   generalizes Chirp+Fox beyond LP to every domain in the spine.
 
 ## Related

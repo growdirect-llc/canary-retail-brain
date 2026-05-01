@@ -41,10 +41,10 @@ Eight of eleven modules fully reciprocate their dependency claims. Three do not 
 | Module | L3 count | L4 status | Specific gaps |
 |---|---|---|---|
 | A | 12 | ✗ None | All 12 L3 processes (A.1.1–A.1.5, A.2.1–A.2.4, A.3.1–A.3.4) missing stubs |
-| C | 26 | ✗ None | All 26 L3 processes (C.1–C.5) missing stubs |
+| C | 26 | ✗ None | All 26 L3 processes (M.1–M.5) missing stubs |
 | D | 29 | ✗ None | All 29 L3 processes (D.1–D.5) missing stubs |
 | F | 28 | ✗ None | All 28 L3 processes (F.1–F.6) missing stubs |
-| J | ~40 | ⚠ Mostly complete | J.1.6 (like-item forecasting): no L4 stub; J.2.6 (lead-time variance): deferred "v2.1" but no concrete L4 commitment |
+| J | ~40 | ⚠ Mostly complete | O.1.6 (like-item forecasting): no L4 stub; O.2.6 (lead-time variance): deferred "v2.1" but no concrete L4 commitment |
 | N | 27 | ✓ Complete | All reference canary-module-n-device.md + §6.5 |
 | P | ~35 | ⚠ Partial | P.2.1 (promotional window inference): no SDD crosswalk; P.4.5 (cold-start elasticity): ASSUMPTION-P-07 with no algorithm; P.5.3 (linked-item price deps): no L4 schema |
 | Q | 38 | ✓ Complete | Canonical — rule catalog + SDK + SDD cross-references throughout |
@@ -52,7 +52,7 @@ Eight of eleven modules fully reciprocate their dependency claims. Three do not 
 | S | ~35 | ✗ None | All L3 processes missing stubs |
 | T | ~40 | ✗ None | All L3 processes missing stubs |
 
-**Resolution applied in this pass:** `→ TBD` stubs added to all silent L3 processes in A, C, D, F, R, S, T. J.1.6 and J.2.6 upgraded to explicit TBD with author note. P.2.1, P.4.5, P.5.3 given algorithm-stub templates.
+**Resolution applied in this pass:** `→ TBD` stubs added to all silent L3 processes in A, C, D, F, R, S, T. O.1.6 and O.2.6 upgraded to explicit TBD with author note. P.2.1, P.4.5, P.5.3 given algorithm-stub templates.
 
 ---
 
@@ -68,7 +68,7 @@ Eight of eleven modules fully reciprocate their dependency claims. Three do not 
 | N | 33 | Multi-device enrollment / workstation-to-station mapping (N.2.3); per-store config drift detection at scale across multi-location tenant |
 | P | 44 | Stacked promotions (multiple active promos on same item); cross-category promotion spillover; markdown execution failure/rollback (buyer reverts markdown in Counterpoint, Canary must detect and sync) |
 | Q | 71 | ✓ Complete |
-| R | 47 | Profile-extension deferred to v3 (explicitly flagged); cross-company customer collision detection (R.5.3 scenario) |
+| R | 47 | Profile-extension deferred to v3 (explicitly flagged); cross-company customer collision detection (C.5.3 scenario) |
 | S | 52 | Owl eCommerce integration implicit in S.5.2 — no explicit investigator-surface user story |
 | T | 64 | Offline-mode document handling absent (ASSUMPTION-T-05 exists but no corresponding user story) |
 
@@ -99,12 +99,12 @@ Eight of eleven modules fully reciprocate their dependency claims. Three do not 
 | Module | Status | Detail |
 |---|---|---|
 | A | N/A | Observer-only module; no detection surface. Contracts feed Q but A does not itself detect. |
-| C | ✗ Partial | C.4 defines rules (B2B-CREDIT-01, B2B-AR-01, etc.) but rule catalog ownership unclear — not cross-referenced to Q rule families or Chirp ingest point |
+| C | ✗ Partial | M.4 defines rules (B2B-CREDIT-01, B2B-AR-01, etc.) but rule catalog ownership unclear — not cross-referenced to Q rule families or Chirp ingest point |
 | D | ✓ Complete | D.4.5 → Q alert with D.4.1 evidence; D.6.3 TRANSFER-VARIANCE → Q-IS-03; D.6.5 UNATTRIBUTED-MOVEMENT → Q anomaly correlation |
 | F | ✓ Complete | F.7.3 → Q-TC-01; F.7.8 → Q-TM-02; F.7.2 → Q-TC-01; F.7.1 → Q tender-mix rules |
-| J | ✓ Complete | J.6 receiving + J.7 RTV → Q-IS-01/02/04; J.4 recommendation state machine; J.8 contracts explicit |
+| J | ✓ Complete | O.6 receiving + O.7 RTV → Q-IS-01/02/04; O.4 recommendation state machine; O.8 contracts explicit |
 | N | ✗ Gap | N.4 supplies LP threshold substrate to Q but no statement of which Chirp rule family each N L2 area triggers |
-| P | ✗ Gap | P.2.6 (undeclared promotions) mentions "event published to Q" but does not name Q rule family; P.6.7 tangential; elasticity signal injection into J.1.4 not explicitly named as Chirp input |
+| P | ✗ Gap | P.2.6 (undeclared promotions) mentions "event published to Q" but does not name Q rule family; P.6.7 tangential; elasticity signal injection into O.1.4 not explicitly named as Chirp input |
 | Q | ✓ Complete | Canonical — 10 rule families, all with detection hook mappings |
 | R | ✗ Missing | No detection-hook registry |
 | S | ✗ Missing | No detection-hook registry |
@@ -123,7 +123,7 @@ Eight of eleven modules fully reciprocate their dependency claims. Three do not 
 | P2 | Reciprocate D↔A and N↔Q and F↔J and T↔D structural contracts | D, N, J, T |
 | P2 | L4 stubs (`→ TBD`) on all silent L3 processes | A, C, D, F, R, S, T |
 | P3 | Add missing user stories (enumerated per module above) | A, C, D, F, N, P, R, S, T |
-| P3 | Clarify C.4 rule ownership vs Q rule catalog | C |
+| P3 | Clarify M.4 rule ownership vs Q rule catalog | C |
 | P3 | Make P.4.5 cold-start elasticity algorithm explicit | P |
 
 ---

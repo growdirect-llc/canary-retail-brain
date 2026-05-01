@@ -51,7 +51,7 @@ What "CRDM is source of truth" means in practice:
    CRDM state. There is no "shadow" data anywhere that contradicts
    CRDM.
 4. **Cross-vendor identity resolves through CRDM.** The
-   `external_identities` table (Module R's responsibility) is a CRDM
+   `external_identities` table (Module C's responsibility) is a CRDM
    structure that maps source-system identifiers (Square customer ID,
    Shopify customer ID, etc.) to the canonical CRDM People row. The
    merchant has one CRDM customer; many vendor identities may resolve
@@ -153,7 +153,7 @@ entities. Examples:
 - **T (Transaction Pipeline)** — produces Events (POS transactions),
   binds them to People (customer, cashier), Places (location), and
   Things (items sold).
-- **R (Customer)** — owns People entity curation.
+- **C (Customer)** — owns People entity curation.
 - **N (Device)** — owns the device subset of Things.
 - **A (Asset Management)** — detects anomalies in Events against
   Things and Places.

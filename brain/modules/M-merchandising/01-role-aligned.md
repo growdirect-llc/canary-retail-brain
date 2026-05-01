@@ -3,9 +3,9 @@ title: C — Role Alignment
 date: 2026-04-24
 type: wiki
 status: active
-tags: [canary, retail-spine, module-c, commercial, items, otb, suppliers, v2]
+tags: [canary, retail-spine, module-m, commercial, items, otb, suppliers, v2]
 sources:
-  - Canary-Retail-Brain/modules/C-commercial.md
+  - Canary-Retail-Brain/modules/M-merchandising.md
   - Canary-Retail-Brain/platform/retail-accounting-method.md
   - Canary-Retail-Brain/platform/stock-ledger.md
 last-compiled: 2026-04-24
@@ -15,7 +15,7 @@ last-compiled: 2026-04-24
 
 ## Summary
 
-C (Commercial) owns the item catalog, merchandising hierarchy, supplier relationships, and Open-to-Buy allocation. **Design-only at this point — no Canary code yet.** This wiki article is the Canary-specific crosswalk for the v2 C module. The canonical, vendor-neutral module spec lives at `Canary-Retail-Brain/modules/C-commercial.md`.
+C (Commercial) owns the item catalog, merchandising hierarchy, supplier relationships, and Open-to-Buy allocation. **Design-only at this point — no Canary code yet.** This wiki article is the Canary-specific crosswalk for the v2 C module. The canonical, vendor-neutral module spec lives at `Canary-Retail-Brain/modules/M-merchandising.md`.
 
 C is a v2 module that closes the merchandising gap left by v1. Once T (Transaction Pipeline) is shipping, the next retailer ask is almost always "can you handle our buying and inventory?" C answers that by owning the item master, department hierarchy, supplier catalog, and OTB enforcement at the buyer level.
 
@@ -81,16 +81,16 @@ Projected SDD structure (future):
 - [[../projects/RetailSpine|Retail Spine MOC]]
 - [[canary-module-d-distribution|D (Distribution)]]
 - [[canary-module-f-finance|F (Finance)]]
-- [[canary-module-j-forecast-order|J (Forecast & Order)]]
+- [[canary-module-o-orders|J (Orders)]]
 - [[../platform/RetailSpine|Retail Spine — Ledger relationships]]
 - [[../platform/stock-ledger|Stock Ledger — Perpetual-Inventory Movement Ledger]]
 - [[../platform/retail-accounting-method|Retail Accounting Method — RIM, Cost Method, Open To Buy]]
 
 ## Sources
 
-- `Canary-Retail-Brain/modules/C-commercial.md` — canonical module spec
+- `Canary-Retail-Brain/modules/M-merchandising.md` — canonical module spec
 - `Canary/docs/sdds/v2/data-model.md` — projected schema overview (placeholder; not yet written)
 
 ---
 
-**Status:** Canary module C is design-phase. No code yet. Ready for SDD drafting and schema design when v2 development cycle begins. Expected integration points: D (receipt validation), F (cost-method), J (OTB headroom).
+**Status:** Canary module M is design-phase. No code yet. Ready for SDD drafting and schema design when v2 development cycle begins. Expected integration points: D (receipt validation), F (cost-method), J (OTB headroom).

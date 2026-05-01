@@ -1,4 +1,6 @@
 ---
+title: Q — Loss Prevention
+nav_order: 8
 classification: internal
 type: wiki
 sub-type: module-functional-decomposition
@@ -6,7 +8,7 @@ date: 2026-04-25
 last-compiled: 2026-04-25
 module: Q
 solution-map-cell: ★ Canary native (non-negotiable Canary core)
-companion-modules: [T, R, N, S, F, D]
+companion-modules: [T, C, N, S, F, D]
 companion-substrate: [ncr-counterpoint-document-model.md, ncr-counterpoint-api-reference.md, ncr-counterpoint-endpoint-spine-map.md]
 companion-context: [garden-center-operating-reality.md, rapid-pos-counterpoint-user-pain-points.md, ncr-counterpoint-rapid-pos-relationship.md]
 companion-rule-catalog: canary-module-q-counterpoint-rule-catalog.md

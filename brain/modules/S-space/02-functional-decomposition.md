@@ -8,20 +8,20 @@ last-compiled: 2026-04-26
 status: draft v1 (archetype — no real customer engagement)
 module: S
 solution-map-cell: ● Full direct (Counterpoint Item / Inventory / EC families — 17 endpoints; the largest catalog surface in the API)
-companion-modules: [T, R, Q, P, J, D, A]
+companion-modules: [T, C, Q, P, O, D, A]
 companion-substrate: [ncr-counterpoint-api-reference.md, ncr-counterpoint-endpoint-spine-map.md]
 companion-context: [garden-center-operating-reality.md, ncr-counterpoint-rapid-pos-relationship.md]
-companion-canary-spec: Canary-Retail-Brain/modules/S-space-range-display.md
-companion-canary-crosswalk: Brain/wiki/canary-module-s-space-range-display.md
+companion-canary-spec: Canary-Retail-Brain/modules/S-space.md
+companion-canary-crosswalk: Brain/wiki/canary-module-s-space.md
 companion-catz: CATz/proof-cases/specialty-smb-counterpoint-solution-map.md
 methodology-note: "Sister card to canary-module-q/t/r/j-functional-decomposition.md. Same template per CATz/method/artifacts/module-functional-decomposition.md. S is the most vertical-distinctive substrate module — garden-center mix-and-match, fractional units, and multi-name plants are first-class L2/L3 concerns, not afterthoughts."
 ---
 
-# Module S (Space, Range, Display — Items / Catalog) — Functional Decomposition
+# Module S (Space) — Functional Decomposition
 
 > **Artifact layer.** Third of three Canary module artifact layers:
-> 1. **Canonical spec** (vendor-neutral) — `Canary-Retail-Brain/modules/S-space-range-display.md`
-> 2. **Code/schema crosswalk** (Canary-specific) — `Brain/wiki/canary-module-s-space-range-display.md`
+> 1. **Canonical spec** (vendor-neutral) — `Canary-Retail-Brain/modules/S-space.md`
+> 2. **Code/schema crosswalk** (Canary-specific) — `Brain/wiki/canary-module-s-space.md`
 > 3. **Functional decomposition** (Counterpoint-substrate-aware, L2/L3 + user stories) — *this card*
 
 ## Governing thesis
@@ -73,7 +73,7 @@ L2 (Process areas)               ├── S.1  Item master ingestion + sync
 L3 (Functional processes)       (36 — enumerated per L2 below)
                                  │
 L4 (Implementation detail)      Lives in SDDs + module specs
-                                  (Canary-Retail-Brain/modules/S-space-range-display.md,
+                                  (Canary-Retail-Brain/modules/S-space.md,
                                    docs/sdds/canary/ncr-counterpoint-retail-spine-integration.md §6.4)
 ```
 
@@ -81,7 +81,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 
 **Purpose.** Pull the Counterpoint item catalog into CRDM. Counterpoint's Item endpoint is the single richest entity surface in the API — `IM_ITEM` carries dozens of fields covering identity, classification, pricing, costing, attributes, ecommerce flags, mix-and-match grouping, vendor linkage, and serial-number tracking. S surfaces all of it without normalization.
 
-**Companion cards.** `ncr-counterpoint-api-reference` (Item endpoint family + cache discipline), `Canary-Retail-Brain/modules/S-space-range-display.md` (canonical spec), `canary-module-s-space-range-display.md` (schema crosswalk).
+**Companion cards.** `ncr-counterpoint-api-reference` (Item endpoint family + cache discipline), `Canary-Retail-Brain/modules/S-space.md` (canonical spec), `canary-module-s-space.md` (schema crosswalk).
 
 ### L3 processes
 
@@ -115,7 +115,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 | S.2.1 | Category hierarchy ingestion | `GET /ItemCategories` | Hierarchical list; cached 24h → TBD: L4 implementation detail pending |
 | S.2.2 | Per-category detail enrichment | `GET /ItemCategory/{CategoryCode}` | Includes `MIN_PFT_PCT` + `TRGT_PFT_PCT` per category → TBD: L4 implementation detail pending |
 | S.2.3 | Category-margin-target surfacing to Q | Direct surface on every item join | Q-ME-01 substrate (below-category-target margin detection) → TBD: L4 implementation detail pending |
-| S.2.4 | Category-history-of-assignment tracking | Effective-dated category assignments per item | Plan-vs-actual comparisons cross hierarchy reorganizations cleanly (per J.1.5) → TBD: L4 implementation detail pending |
+| S.2.4 | Category-history-of-assignment tracking | Effective-dated category assignments per item | Plan-vs-actual comparisons cross hierarchy reorganizations cleanly (per O.1.5) → TBD: L4 implementation detail pending |
 | S.2.5 | Subcategory rollup | `IM_ITEM.SUBCAT_COD` to category | Hierarchy traversal for analytics + dashboard rollups → TBD: L4 implementation detail pending |
 | S.2.6 | Per-category assortment plan substrate | Reads cross-cut with P (which categories carry seasonal plans) | Substrate for P; not authored by S → TBD: L4 implementation detail pending |
 
@@ -184,7 +184,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 | S.5.1 | Item status surfacing | `IM_ITEM.STAT` (active / discontinued / etc.) | Substrate for end-of-life clearance recognition + retired-item filtering → TBD: L4 implementation detail pending |
 | S.5.2 | Multi-name field surfacing | `IM_ITEM.ADDL_DESCR_1/2/3` + `ATTR_COD_1/2` | Convention-dependent (**ASSUMPTION-S-07**); per-customer mapping captured at onboarding → TBD: L4 implementation detail pending |
 | S.5.3 | Item-code drift handling | Same plant under multiple `ITEM_NO`s across intakes | S surfaces drift-tolerance metadata; downstream rules apply tolerance bands (per garden-center allow-list framework) → TBD: L4 implementation detail pending |
-| S.5.4 | Mid-season catalog addition | New `ITEM_NO` appears between full poll cycles | S's incremental poll picks up new items via `RS_UTC_DT` filter; like-item forecasting (J.1.6) bridges the no-history gap → TBD: L4 implementation detail pending |
+| S.5.4 | Mid-season catalog addition | New `ITEM_NO` appears between full poll cycles | S's incremental poll picks up new items via `RS_UTC_DT` filter; like-item forecasting (O.1.6) bridges the no-history gap → TBD: L4 implementation detail pending |
 | S.5.5 | Retired-item handling | `STAT='D'` discontinued | Soft-retire in CRDM; preserve historical references; exclude from future replenishment recommendations → TBD: L4 implementation detail pending |
 | S.5.6 | Manual-entry-error tolerance | Hand-typed item creation by buyers at intake | Flag-and-ingest, not reject — per garden-center wiki posture → TBD: L4 implementation detail pending |
 
@@ -220,7 +220,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 
 ## S.7 — Cross-module substrate contracts
 
-**Purpose.** S supplies catalog substrate to nearly every other spine module. This L2 is the contract registry — what fields, what preservation rules, what freshness commitments. Symmetric to T.7 / R.6 / J.8b.
+**Purpose.** S supplies catalog substrate to nearly every other spine module. This L2 is the contract registry — what fields, what preservation rules, what freshness commitments. Symmetric to T.7 / C.6 / J.8b.
 
 ### L3 contracts (registry)
 
@@ -323,12 +323,12 @@ ASSUMPTION resolutions:
 
 ## Related
 
-- `Canary-Retail-Brain/modules/S-space-range-display.md` — L1 canonical spec
-- `canary-module-s-space-range-display.md` — L2 Canary code/schema crosswalk
+- `Canary-Retail-Brain/modules/S-space.md` — L1 canonical spec
+- `canary-module-s-space.md` — L2 Canary code/schema crosswalk
 - `canary-module-q-functional-decomposition.md` — sister card; S.2.3 + S.7.2 (margin targets) + S.3 (mix-and-match) + S.5 (drift) drive Q rule families
 - `canary-module-t-functional-decomposition.md` — sister card; T's transaction-line parse needs S's item context (T.7.8 contract)
-- `canary-module-r-functional-decomposition.md` — sister card; R's tier-aware allow-lists join through S categories
-- `canary-module-j-functional-decomposition.md` — sister card; J's like-item forecasting and vendor-scorecard depend on S.2 + S.7.8
+- `canary-module-c-functional-decomposition.md` — sister card; R's tier-aware allow-lists join through S categories
+- `canary-module-o-functional-decomposition.md` — sister card; J's like-item forecasting and vendor-scorecard depend on S.2 + S.7.8
 - `ncr-counterpoint-api-reference.md` — full Item / Inventory / EC family detail
 - `ncr-counterpoint-endpoint-spine-map.md` — per-endpoint × CRDM × spine map for Item family
 - `ncr-counterpoint-rapid-pos-relationship.md` — feature-to-API mapping (mix-and-match, fractional, multi-name)

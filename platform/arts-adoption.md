@@ -85,7 +85,7 @@ The ARTS Site Model defines a physical location. At v1, Canary has not yet forma
 
 **Open positioning question:** When should Canary claim Site Model conformance? The model could be owned by:
 - A future Places-registry module
-- R (Customer) as part of a geo-attribution extension
+- C (Customer) as part of a geo-attribution extension
 - Q (Loss Prevention) as part of per-location alert routing
 
 This is documented as a v2 decision point; for now, Site Model adoption is deferred pending module-ownership clarification.
@@ -121,13 +121,13 @@ The choice affects positioning, compliance claims in customer contracts, and cer
 - [[spine-13-prefix|13-prefix spine]] — module catalog and ownership assignments
 - [[crdm|Canonical Retail Data Model]] — People × Places × Things × Events × Workflows framework
 - [[T-transaction-pipeline|T (Transaction Pipeline)]] — POSLog source of truth
-- [[R-customer|R (Customer)]] — Customer Model source of truth
+- [[R-customer|C (Customer)]] — Customer Model source of truth
 - [[N-device|N (Device)]] — Device Model source of truth
 - [[overview|Platform overview]]
 
 ## Sources
 
 - [[T-transaction-pipeline|T — Transaction Pipeline]] — POSLog mapping (§ARTS mapping)
-- [[R-customer|R — Customer]] — Customer Model mapping (§ARTS mapping)
+- [[R-customer|C — Customer]] — Customer Model mapping (§ARTS mapping)
 - [[N-device|N — Device]] — Device Model mapping (§ARTS mapping)
 - [[spine-13-prefix|13-prefix spine]] — module ownership and v2 positioning

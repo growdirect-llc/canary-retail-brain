@@ -1,4 +1,6 @@
 ---
+title: D — Distribution
+nav_order: 3
 classification: internal
 type: wiki
 sub-type: module-functional-decomposition
@@ -6,7 +8,7 @@ date: 2026-04-26
 last-compiled: 2026-04-26
 module: D
 solution-map-cell: ◐ Partial — per-location inventory snapshots direct; transfer workflow via Document omnibus (DOC_TYP=XFER); transfer-loss detection and multi-store distribution recommendations are Canary-native
-companion-modules: [T, F, J, Q, C]
+companion-modules: [T, F, O, Q, C]
 companion-substrate: [ncr-counterpoint-document-model.md, ncr-counterpoint-api-reference.md, ncr-counterpoint-endpoint-spine-map.md]
 companion-context: [retail-merchandise-planning-otb.md, retail-po-from-plan.md, garden-center-operating-reality.md]
 companion-canary-spec: Canary-Retail-Brain/modules/D-distribution.md
@@ -94,7 +96,7 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/D-distribution.md
 | D.1.2 | Poll `GET /Items_ByLocation` to reconcile item-location attributions | `Items_ByLocation` endpoint | Confirms which items exist at which locations; catches new-location-item pairs → TBD: L4 implementation detail pending |
 | D.1.3 | Poll `GET /Item_Inventory` for item-level aggregate inventory | `Item_Inventory` endpoint | Cross-location rollup; used to validate per-location sum vs. aggregate → TBD: L4 implementation detail pending |
 | D.1.4 | Detect and seal SOH deltas into the Canary ledger | Diff between successive snapshots → D's movement ledger | Delta between T-1 and T snapshots that cannot be attributed to a known Document becomes an UNATTRIBUTED-MOVEMENT flag → TBD: L4 implementation detail pending |
-| D.1.5 | Reconcile snapshot-vs-Document-derived position | D.1.4 snapshot delta vs. D.3 XFER + J.6 RECVR events | The residual after Document-attributed movements are stripped is the reconciliation surface for D.4 → TBD: L4 implementation detail pending |
+| D.1.5 | Reconcile snapshot-vs-Document-derived position | D.1.4 snapshot delta vs. D.3 XFER + O.6 RECVR events | The residual after Document-attributed movements are stripped is the reconciliation surface for D.4 → TBD: L4 implementation detail pending |
 | D.1.6 | Handle stale-location responses (Counterpoint location offline or unreachable) | Retry policy, staleness flag on snapshot record | Garden-center locations with poor connectivity produce stale snapshots; flag-and-hold, not reject → TBD: L4 implementation detail pending |
 
 ### User stories
@@ -114,7 +116,7 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/D-distribution.md
 | ID | L3 process | Substrate | Notes |
 |---|---|---|---|
 | D.2.1 | Poll `GET /InventoryLocations` to map item-to-location assignments | `InventoryLocations` endpoint | Establishes the set of valid `(item, location)` pairs; drives D.1.1 poll scope → TBD: L4 implementation detail pending |
-| D.2.2 | Poll `GET /InventoryControl` for per-item reorder parameters | `InventoryControl` endpoint | Reorder-point and QOH thresholds; feeds J.2.1 (ROP calculation) with substrate baseline → TBD: L4 implementation detail pending |
+| D.2.2 | Poll `GET /InventoryControl` for per-item reorder parameters | `InventoryControl` endpoint | Reorder-point and QOH thresholds; feeds O.2.1 (ROP calculation) with substrate baseline → TBD: L4 implementation detail pending |
 | D.2.3 | Poll `GET /InventoryCost` for per-item cost basis per location | `InventoryCost` endpoint | Landed cost per location; required for transfer-cost posting and RTV cost reversal → TBD: L4 implementation detail pending |
 | D.2.4 | Poll `GET /InventoryEC` for omnichannel inventory flags | `InventoryEC` endpoint | EC (e-commerce) overlay flags; required when merchant has an online channel co-existing with in-store → TBD: L4 implementation detail pending |
 | D.2.5 | Detect new item-location pairs and trigger attribution pipeline | D.2.1 set-diff vs. prior poll | New location-item pair triggers S's assortment-validation check before Canary starts tracking → TBD: L4 implementation detail pending |
@@ -122,7 +124,7 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/D-distribution.md
 ### User stories
 
 - *As D's Attribution Pipeline, I want `InventoryLocations` polled on a slower cadence (daily default) than SOH, so item-location set changes are detected promptly without over-polling a low-change surface.*
-- *As J's ROP Calculator, I want D to surface `InventoryControl.reorder_point` per `(item, location)` as a buyer-set baseline ROP, so J.2.1 can use the Counterpoint value as the starting point before Canary calculates a demand-derived override.*
+- *As J's ROP Calculator, I want D to surface `InventoryControl.reorder_point` per `(item, location)` as a buyer-set baseline ROP, so O.2.1 can use the Counterpoint value as the starting point before Canary calculates a demand-derived override.*
 - *As D, I want new `(item, location)` pairs detected and flagged for assortment validation before tracking begins — a new item arriving at a location it wasn't assigned to is operationally significant.*
 
 ## D.3 — Transfer detection (DOC_TYP=XFER)
@@ -158,7 +160,7 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/D-distribution.md
 
 | ID | L3 process | Source | Notes |
 |---|---|---|---|
-| D.4.1 | Calculate transfer-variance per `(XFER, item)` | XFER qty (D.3.3) vs. RECVR qty (J.6.2) | Variance = initiated qty − received qty per line → TBD: L4 implementation detail pending |
+| D.4.1 | Calculate transfer-variance per `(XFER, item)` | XFER qty (D.3.3) vs. RECVR qty (O.6.2) | Variance = initiated qty − received qty per line → TBD: L4 implementation detail pending |
 | D.4.2 | Classify transfer variance by type | Threshold rules: minor (< tolerance), significant (> threshold), zero-receipt | Zero-receipt on confirmed in-transit is the most severe classification → TBD: L4 implementation detail pending |
 | D.4.3 | Detect systematic transfer-loss patterns per route or item | Canary-native aggregation over D.4.1 | Pattern = recurring variance on same from_location → to_location pair; feeds Q-IS-03 → TBD: L4 implementation detail pending |
 | D.4.4 | Reconcile unattributed SOH deltas (D.1.4 residual) against XFER candidates | Snapshot delta vs. Document accounting | Residuals after known XFER/RECVR/RTV accounting may indicate undocumented transfers → TBD: L4 implementation detail pending |
@@ -175,18 +177,18 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/D-distribution.md
 
 **Coverage posture.** ★ Canary-native (gap). Counterpoint exposes inventory position; it provides no distribution-optimization or cross-location rebalancing recommendation. Canary builds these natively by combining D.1's snapshot surface with J's demand forecast.
 
-**Companion cards.** `retail-merchandise-planning-otb.md` (allocation methods), `canary-module-j-functional-decomposition.md` (J.1 demand forecast as input), `garden-center-operating-reality.md` (multi-store transfer reality).
+**Companion cards.** `retail-merchandise-planning-otb.md` (allocation methods), `canary-module-o-functional-decomposition.md` (O.1 demand forecast as input), `garden-center-operating-reality.md` (multi-store transfer reality).
 
 ### L3 processes
 
 | ID | L3 process | Source | Notes |
 |---|---|---|---|
-| D.5.1 | Calculate excess stock per `(item, location)` | D.1.1 SOH − J.2 (ROP + safety stock target) | Excess = SOH beyond the weeks-of-supply target for that item at that location → TBD: L4 implementation detail pending |
-| D.5.2 | Calculate deficit stock per `(item, location)` | J.2.1 ROP − D.1.1 current SOH | Deficit = SOH below ROP at the location → TBD: L4 implementation detail pending |
+| D.5.1 | Calculate excess stock per `(item, location)` | D.1.1 SOH − O.2 (ROP + safety stock target) | Excess = SOH beyond the weeks-of-supply target for that item at that location → TBD: L4 implementation detail pending |
+| D.5.2 | Calculate deficit stock per `(item, location)` | O.2.1 ROP − D.1.1 current SOH | Deficit = SOH below ROP at the location → TBD: L4 implementation detail pending |
 | D.5.3 | Match excess at one location to deficit at another | Canary-native rebalancing logic | "Store A has 40 flats of perennials they don't need; Store C is 20 below ROP" → TBD: L4 implementation detail pending |
 | D.5.4 | Score rebalancing candidates by transfer-cost vs. replenishment-cost tradeoff | Per-route transfer cost (configurable) vs. J's new-order cost | Transfer is preferred when it's cheaper than ordering new and time-to-destination is faster than lead time → TBD: L4 implementation detail pending |
-| D.5.5 | Generate transfer recommendation with OTB-context | Canary-native; cross-cut with J.3 (OTB) | Transfer doesn't consume OTB; restoring from transfer headroom context differs from new-PO headroom → TBD: L4 implementation detail pending |
-| D.5.6 | Buyer review + accept/modify/reject for distribution recommendation | Canary-native UI / MCP / Owl | Same review UX pattern as J.4; buyer can accept the rebalancing suggestion or override → TBD: L4 implementation detail pending |
+| D.5.5 | Generate transfer recommendation with OTB-context | Canary-native; cross-cut with O.3 (OTB) | Transfer doesn't consume OTB; restoring from transfer headroom context differs from new-PO headroom → TBD: L4 implementation detail pending |
+| D.5.6 | Buyer review + accept/modify/reject for distribution recommendation | Canary-native UI / MCP / Owl | Same review UX pattern as O.4; buyer can accept the rebalancing suggestion or override → TBD: L4 implementation detail pending |
 
 ### User stories
 
@@ -211,7 +213,7 @@ L4 (Implementation detail)      Canary-Retail-Brain/modules/D-distribution.md
 | D.6.4 | In-transit inventory held until RECVR confirmation | J (on-order accounting), C (OTB) | In-transit is NOT available-for-sale; excluded from J's available-SOH replenishment calc |
 | D.6.5 | UNATTRIBUTED-MOVEMENT events per snapshot delta residual | Q (anomaly correlation), F (shrink attribution) | Every delta not attributed to a Document is named, not silently dropped |
 | D.6.6 | Transfer-cost per route (per-tenant configurable) | D.5 self-use, J (cost comparison) | Default transfer cost surfaced as configurable per route; zero if merchant doesn't track freight |
-| D.6.7 | `InventoryControl.reorder_point` surface to J | J.2.1 (ROP baseline input) | D surfaces Counterpoint's buyer-set ROP as the starting baseline for J's ROP calculation |
+| D.6.7 | `InventoryControl.reorder_point` surface to J | O.2.1 (ROP baseline input) | D surfaces Counterpoint's buyer-set ROP as the starting baseline for J's ROP calculation |
 | D.6.8 | Item-location set changes (new/removed pairs) | S (assortment validation), J (forecast scope) | Set changes published as events so J's forecast scope stays current |
 | D.6.9 | In-transit timeout alerts to operations queue | D.3.6 timeout → operations review | Timeout is 72 hours (configurable); alert carries XFER Document ID and from/to context |
 
@@ -283,10 +285,10 @@ ASSUMPTION resolutions:
 
 - `Canary-Retail-Brain/modules/D-distribution.md` — L1 canonical spec
 - `canary-module-d-distribution.md` — L2 Canary code/schema crosswalk
-- `canary-module-j-functional-decomposition.md` — sister card; J.6.2 RECVR matching is D.3.5's prerequisite; J.2.1 ROP calculation consumes D.6.7
+- `canary-module-o-functional-decomposition.md` — sister card; O.6.2 RECVR matching is D.3.5's prerequisite; O.2.1 ROP calculation consumes D.6.7
 - `canary-module-q-functional-decomposition.md` — sister card; Q-IS-03 (transfer-loss pattern) reads from D.4.3
 - `canary-module-f-functional-decomposition.md` — sister card; F's cost reconciliation consumes D.6.3 and D.6.5
-- `canary-module-c-functional-decomposition.md` — sister card; C reads D.6.1 SOH for OTB calculation
+- `canary-module-m-functional-decomposition.md` — sister card; C reads D.6.1 SOH for OTB calculation
 - `canary-module-t-functional-decomposition.md` — sister card; T.4.7 routing contract is a D.3 prerequisite
 - `ncr-counterpoint-document-model.md` — DOC_TYP=XFER, `PS_DOC_HDR_ORIG_DOC` reference
 - `ncr-counterpoint-api-reference.md` — D-column coverage summary (7 inventory endpoints)

@@ -42,17 +42,17 @@ Every L3 process in the corpus has L4 marked "TBD: L4 implementation detail pend
 |--------|---------|-----------------|
 | T — Transaction Pipeline | 41 | 41 |
 | Q — Loss Prevention | 38 | 38 |
-| R — Customer | 32 | 32 |
+| C — Customer | 32 | 32 |
 | N — Device | 27 | 27 |
 | A — Asset Management | 12 | 12 |
 | C — Commercial / B2B | 26 | 26 |
 | D — Distribution | 35 | 35 |
 | F — Finance | 31 | 31 |
-| J — Forecast & Order | 47 | 47 |
+| J — Orders | 47 | 47 |
 | S — Space / Range / Display | 36 | 36 |
 | P — Pricing & Promotion | 33 | 33 |
-| L — Labor & Workforce | 15 | 15 |
-| W — Work Execution | 14 | 14 |
+| L — Labor | 15 | 15 |
+| W — Execution | 14 | 14 |
 | **TOTAL** | **357** | **357** |
 
 ---
@@ -65,7 +65,7 @@ An L3 is marked `INFERRED` but the supporting basis was not explicitly quoted fr
 |---|--------|-------|-----------|------|--------|
 | 1 | N | N.1.1–N.6.5 (all 27) | All Device / Store Config L3s | UNSUPPORTED-INFERENCE | The mapping of Module N to `cmd/edge` is stated as INFERRED in the process map. The basis is "edge agent" naming convention in the CanaryGO repo. No source document explicitly assigns N to `cmd/edge`. **Resolution:** Inspect `cmd/edge` source code to confirm it handles store config / device management; update tag to DOCUMENTED if confirmed. |
 | 2 | F | F.5.1–F.5.4 | Tokenization / Secure Pay flows | UNSUPPORTED-INFERENCE | F.5 is mapped to `cmd/identity` (INFERRED). The basis is that tokenization concerns are typically handled in identity/auth infrastructure. No source document confirms `cmd/identity` handles tokenization for F. **Resolution:** Inspect `cmd/identity` source; confirm or reassign. |
-| 3 | L | L.1.1–L.5.2 (all 15) | All Labor & Workforce L3s | UNSUPPORTED-INFERENCE | All L L3s are INFERRED from the schema crosswalk in the wiki narrative (tables: employees, shifts, time_entries, breaks, absences, productivity_metrics, payroll_exports). The wiki is the authoritative source for L, but the L3 process names were derived by the decomp executor — not quoted directly from the wiki. **Resolution:** Re-read `canary-module-l-labor-workforce.md` and annotate each L3 with its supporting wiki passage; update tags accordingly. |
+| 3 | L | L.1.1–L.5.2 (all 15) | All Labor L3s | UNSUPPORTED-INFERENCE | All L L3s are INFERRED from the schema crosswalk in the wiki narrative (tables: employees, shifts, time_entries, breaks, absences, productivity_metrics, payroll_exports). The wiki is the authoritative source for L, but the L3 process names were derived by the decomp executor — not quoted directly from the wiki. **Resolution:** Re-read `canary-module-l-labor.md` and annotate each L3 with its supporting wiki passage; update tags accordingly. |
 
 ---
 
@@ -85,8 +85,8 @@ L3 processes that appear to describe the same behavior across two modules. These
 |---|----------|-----------|----------|-----------|---------------------|-------------------------|
 | 1 | D — Distribution | D.1.1–D.2.6 (inventory snapshots) | A — Asset Management | A.2.1–A.2.5 (inventory position tracking) | Both describe inventory position tracking. D tracks inventory at the snapshot/delta level for distribution purposes; A tracks inventory at the asset item type level for non-saleable classification. | Confirmed separate concerns — D is quantity-over-time; A is item-type metadata. Document boundary explicitly in both modules. |
 | 2 | T — Transaction Pipeline | T.3.4 (payment-line flattening) | F — Finance | F.4.1–F.4.5 (payment flow parsing, Secure Pay) | T parses and flattens payment lines; F owns the Secure Pay / tokenization / NSPTransaction flows. | T owns the parsing step; F owns the financial instrument and tokenization layer. T.3.4 produces the input F.4 consumes. Not a true overlap — confirm the handoff contract is explicit (currently implicit). |
-| 3 | Q — Loss Prevention | Q.7.1–Q.7.6 (MCP tools surface) | C — Commercial / B2B | C.4.1–C.4.5 (B2B detection rules Q-C-01 through Q-C-05) | C.4.x detection rules are documented as routing through Q's Chirp pipeline. The rules are C's domain but the execution surface is Q's. | Intentional — document explicitly that C.4.x rules are Q-pipeline extensions, not C-pipeline. Ensure C epic (GRO-652) references Q epic (GRO-651) as a dependency for C.4.x implementation. |
-| 4 | Q — Loss Prevention | Q.3.1–Q.3.5 (case management via Fox) | W — Work Execution | W.3.1–W.3.3 (case CRUD extending Fox across all domains) | Q uses Fox for LP cases; W generalizes Fox across all domains. At v3, W's case management replaces Q's standalone Fox usage or wraps it. | W is the v3 generalization — Q Fox is the v2 reference implementation W extends. This is intentional inheritance, not a conflict. Confirm at W SDD authoring stage whether Q's Fox tables are consumed directly by W or W creates separate tables with the same schema. |
+| 3 | Q — Loss Prevention | Q.7.1–Q.7.6 (MCP tools surface) | C — Commercial / B2B | M.4.1–M.4.5 (B2B detection rules Q-M-01 through Q-M-05) | M.4.x detection rules are documented as routing through Q's Chirp pipeline. The rules are C's domain but the execution surface is Q's. | Intentional — document explicitly that M.4.x rules are Q-pipeline extensions, not C-pipeline. Ensure C epic (GRO-652) references Q epic (GRO-651) as a dependency for M.4.x implementation. |
+| 4 | Q — Loss Prevention | Q.3.1–Q.3.5 (case management via Fox) | W — Execution | E.3.1–E.3.3 (case CRUD extending Fox across all domains) | Q uses Fox for LP cases; W generalizes Fox across all domains. At v3, W's case management replaces Q's standalone Fox usage or wraps it. | W is the v3 generalization — Q Fox is the v2 reference implementation W extends. This is intentional inheritance, not a conflict. Confirm at W SDD authoring stage whether Q's Fox tables are consumed directly by W or W creates separate tables with the same schema. |
 
 ---
 

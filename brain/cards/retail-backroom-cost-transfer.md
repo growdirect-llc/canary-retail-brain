@@ -53,7 +53,7 @@ None of these are store costs if the store did not make the upstream decision. T
 
 | Source of excess | Attribution node | Resolution mechanism |
 |-----------------|-----------------|---------------------|
-| Buyer over-buy | Module C / Buyer | Buyer performance metric; OTB impact on next cycle |
+| Buyer over-buy | Module M / Buyer | Buyer performance metric; OTB impact on next cycle |
 | Vendor overshipment | Vendor / Module D | Vendor chargeback; return-to-vendor claim |
 | Failed promotion clearance | Module P / Commercial | Promotional ROI metric; markdown cost charged to campaign |
 | Late delivery (demand window missed) | Module D / Vendor | Vendor SLA breach; refused receipt or negotiated credit |
@@ -76,7 +76,7 @@ Back-room inventory aging report by source PO, buyer, and days-on-hand is the pr
 
 ## Consumers
 
-- **Module C (Commercial)** — buyer accountability; back-room aging by buyer feeds performance metric
+- **Module M (Merchandising)** — buyer accountability; back-room aging by buyer feeds performance metric
 - **Module D (Distribution)** — vendor overshipment attribution; return-to-vendor and chargeback triggers
 - **Module Q (Loss Prevention)** — back-room shrink monitoring; elevated risk surface vs. selling floor
 - **Controller agent** — cross-module escalation when back-room aging indicates a commercial accountability gap that has not been resolved

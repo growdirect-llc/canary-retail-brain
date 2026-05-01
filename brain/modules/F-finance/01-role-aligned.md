@@ -91,9 +91,9 @@ No v2 SDDs exist yet for F. Projected SDD structure:
 ## Related
 
 - [[../projects/RetailSpine|Retail Spine MOC]]
-- [[canary-module-c-commercial|C (Commercial)]]
+- [[canary-module-m-merchandising|C (Commercial)]]
 - [[canary-module-d-distribution|D (Distribution)]]
-- [[canary-module-j-forecast-order|J (Forecast & Order)]]
+- [[canary-module-o-orders|J (Orders)]]
 - [[../platform/RetailSpine|Retail Spine — Ledger relationships]]
 - [[../platform/stock-ledger|Stock Ledger — Perpetual-Inventory Movement Ledger]]
 - [[../platform/retail-accounting-method|Retail Accounting Method — RIM, Cost Method, Open To Buy]]

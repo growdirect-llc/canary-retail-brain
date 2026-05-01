@@ -8,7 +8,7 @@ last-compiled: 2026-04-26
 status: draft v1 (archetype — no real customer engagement)
 module: F
 solution-map-cell: ● Full direct (Counterpoint PayCode / TaxCode / GiftCard / Document_Payments / NSPTransaction — ~12 endpoints)
-companion-modules: [T, R, Q, J, C]
+companion-modules: [T, C, Q, O, C]
 companion-substrate: [ncr-counterpoint-api-reference.md, ncr-counterpoint-document-model.md, ncr-counterpoint-endpoint-spine-map.md]
 companion-context: [garden-center-operating-reality.md, ncr-counterpoint-rapid-pos-relationship.md, rapid-pos-counterpoint-user-pain-points.md]
 companion-canary-spec: Canary-Retail-Brain/modules/F-finance.md
@@ -41,7 +41,7 @@ F is **● Full direct** in every Counterpoint Solution Map cell, but the cell h
 | Counterpoint endpoints in F's path | ~12 (PayCode / PayCodes / TaxCodes / GiftCard / GiftCards / GiftCardCode / GiftCardCodes / Tokenize endpoints / NSPTransaction / Document_Payments) | API reference |
 | Cached entities (24h server-side) | 2 (PayCodes, TaxCodes — also GiftCardCodes likely) | API reference cache discipline |
 | Cross-cuts with T | 1 (per-Document payment + tax flattening — F.4) | T.3 + T.7 |
-| Cross-cuts with R | 1 (AR ledger surfacing — F.6) | R.3.5 |
+| Cross-cuts with R | 1 (AR ledger surfacing — F.6) | C.3.5 |
 | Substrate contracts F owes downstream | 9 | This card §F.7 |
 | Assumptions requiring real-customer validation | 9 | Tagged `ASSUMPTION-F-NN` |
 | User stories enumerated | 41 | Observer + actor mix; cast in §Operating notes |
@@ -225,7 +225,7 @@ All L3 processes below are stub-pending at L4. Until an SDD section or module sp
 
 **Purpose.** Counterpoint's AR ledger (`Customer_OpenItems` + customer-record AR fields) is technically a Customer endpoint but its semantics are finance-shaped — aging buckets, credit posture, collection workflows. F surfaces the AR ledger and provides the contracts that R (per-customer AR exposure), J (PO cost flow into AR), and C (B2B credit posture) read against.
 
-**Companion cards.** `canary-module-r-functional-decomposition.md` § R.3.5 (R-side surface), `ncr-counterpoint-api-reference` § "Customer — Module R" § Customer_OpenItems.
+**Companion cards.** `canary-module-c-functional-decomposition.md` § C.3.5 (R-side surface), `ncr-counterpoint-api-reference` § "Customer — Module C" § Customer_OpenItems.
 
 ### L3 processes
 
@@ -246,7 +246,7 @@ All L3 processes below are stub-pending at L4. Until an SDD section or module sp
 
 ## F.7 — Cross-module substrate contracts
 
-**Purpose.** F supplies tender + tax + AR substrate to T (parse), Q (rules), R (AR view), J (cost flow), and C (B2B credit). This L2 is the contract registry. Symmetric to T.7 / R.6 / S.7 / J.8b.
+**Purpose.** F supplies tender + tax + AR substrate to T (parse), Q (rules), R (AR view), J (cost flow), and C (B2B credit). This L2 is the contract registry. Symmetric to T.7 / C.6 / S.7 / J.8b.
 
 ### L3 contracts (registry)
 
@@ -258,7 +258,7 @@ All L3 processes below are stub-pending at L4. Until an SDD section or module sp
 | F.7.4 | PII-redaction guarantee | All | `SIG_IMG`, raw PAN, raw CVV redacted at parser; F asserts non-presence in CRDM |
 | F.7.5 | Gift-card balance + activity | Q (over-redemption rules), Owl (liability queries) | Per-card balance + activity stream available; balance-mismatch detectable |
 | F.7.6 | Tokenization status per store | Operator (PCI compliance dashboard) | Tokenization count + per-card status surfaced |
-| F.7.7 | AR aging per customer | R (R.3.5 surface), J (PO cost flow), C (B2B credit) | Open AR by customer, aging bucketed |
+| F.7.7 | AR aging per customer | R (C.3.5 surface), J (PO cost flow), C (B2B credit) | Open AR by customer, aging bucketed |
 | F.7.8 | Per-Document apply-to instructions | Q (Q-TM-02 tender-swap detection) | `PS_DOC_PMT_APPLY[]` preserved per payment |
 | F.7.9 | Alt-payment-rail PayCode tagging | Q (vendor-payment classification), Owl (alt-rail analytics) | Per-tenant alt-rail PayCode list available; substrate for the Canary-native option-(e) wedge |
 
@@ -367,8 +367,8 @@ The following user stories expand F's coverage across onboarding, override workf
 - `canary-module-f-finance.md` — L2 Canary code/schema crosswalk
 - `canary-module-q-functional-decomposition.md` — sister card; F.2.4 + F.4 + F.7.x drive Q-TM and Q-TC rule families
 - `canary-module-t-functional-decomposition.md` — sister card; T.3.4 + T.3.5 (parsing) implements F.4 contracts
-- `canary-module-r-functional-decomposition.md` — sister card; R.3.4 + R.3.5 (AR-customer + AR aging surface) reads from F.6
-- `canary-module-j-functional-decomposition.md` — sister card; J.6.4 (cost reconciliation) and J.8.5 (PO recommendation as substrate) bridge with F's AR posture
+- `canary-module-c-functional-decomposition.md` — sister card; C.3.4 + C.3.5 (AR-customer + AR aging surface) reads from F.6
+- `canary-module-o-functional-decomposition.md` — sister card; O.6.4 (cost reconciliation) and O.8.5 (PO recommendation as substrate) bridge with F's AR posture
 - `ncr-counterpoint-api-reference.md` — full PayCode / TaxCode / GiftCard / Tokenization detail
 - `ncr-counterpoint-document-model.md` — `PS_DOC_PMT[]` + `PS_DOC_TAX[]` + `PS_DOC_GFC[]` substrate
 - `ncr-counterpoint-endpoint-spine-map.md` — per-endpoint × CRDM × spine map for F family

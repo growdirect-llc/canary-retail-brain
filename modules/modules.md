@@ -32,7 +32,7 @@ The merchandising operations layer.
 | [Commercial](C-commercial) | C | Vendor portfolio, contracts, OTB, range strategy |
 | [Distribution](D-distribution) | D | DC and inter-store transfers, vendor receiving, RTV |
 | [Finance](F-finance) | F | Three-way match, MAC, AP, period close, GL reconciliation |
-| [Forecast & Order](J-forecast-order) | J | Demand forecasting, suggested order quantity, vendor collaboration |
+| [Orders](J-forecast-order) | J | Demand forecasting, suggested order quantity, vendor collaboration |
 
 ## Full spine (V3, design complete)
 
@@ -42,8 +42,8 @@ The full operational footprint.
 |---|---|---|
 | [Space, Range & Display](S-space-range-display) | S | Planograms, fixtures, shelf-edge labels, reset scheduling |
 | [Pricing & Promotion](P-pricing-promotion) | P | Price history, promotional events, markdown management |
-| [Labor & Workforce](L-labor-workforce) | L | Scheduling, time tracking, productivity (currently on hold) |
-| [Work Execution](W-work-execution) | W | Task dispatch, completion attestation (currently on hold) |
+| [Labor](L-labor-workforce) | L | Scheduling, time tracking, productivity (currently on hold) |
+| [Execution](W-work-execution) | W | Task dispatch, completion attestation (currently on hold) |
 
 ## Reading order
 

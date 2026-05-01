@@ -3,16 +3,16 @@ title: R — Role Alignment
 date: 2026-04-24
 type: wiki
 status: active
-tags: [canary, retail-spine, module-r, customer, identity, arts]
+tags: [canary, retail-spine, module-c, customer, identity, arts]
 sources:
-  - Canary-Retail-Brain/modules/R-customer.md
+  - Canary-Retail-Brain/modules/C-customer.md
   - Canary/canary/models/app/customers.py
   - Canary/canary/services/identity/
   - Canary/docs/sdds/v2/identity.md
 last-compiled: 2026-04-24
 ----
 
-# Canary Module — R (Customer)
+# Canary Module — C (Customer)
 
 ## Summary
 
@@ -25,7 +25,7 @@ workflow demands it.
 
 This wiki article is the Canary-specific crosswalk for R. The
 canonical, vendor-neutral spec lives at
-`Canary-Retail-Brain/modules/R-customer.md`.
+`Canary-Retail-Brain/modules/C-customer.md`.
 
 ## Code surface
 
@@ -143,7 +143,7 @@ processing transactions.
 
 ## Sources
 
-- `Canary-Retail-Brain/modules/R-customer.md` — canonical vendor-neutral spec
+- `Canary-Retail-Brain/modules/C-customer.md` — canonical vendor-neutral spec
 - `Canary/canary/models/app/customers.py` — Customer model
 - `Canary/canary/models/app/card_profiles.py` — opaque card-fingerprint store
 - `Canary/canary/models/app/external_identities.py` — cross-DB link scaffold

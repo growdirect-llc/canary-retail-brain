@@ -8,7 +8,7 @@ last-compiled: 2026-04-25
 status: draft v1 (archetype — no real customer engagement)
 module: T
 solution-map-cell: ● Full direct (Counterpoint Document family — 11 endpoints)
-companion-modules: [R, N, S, F, D, J, Q]
+companion-modules: [C, N, S, F, D, O, Q]
 companion-substrate: [ncr-counterpoint-document-model.md, ncr-counterpoint-api-reference.md, ncr-counterpoint-endpoint-spine-map.md]
 companion-context: [garden-center-operating-reality.md, ncr-counterpoint-rapid-pos-relationship.md]
 companion-canary-spec: Canary-Retail-Brain/modules/T-transaction-pipeline.md

@@ -26,7 +26,7 @@ Q runs against CRDM. CRDM is populated by the Counterpoint TSP adapter (Phases 0
 | `Events.pricing_decisions` | `PS_DOC_LIN_PRICE[]` | PRC_JUST_STR, PRC_GRP_TYP, PRC_RUL_SEQ_NO, UNIT_PRC, QTY_PRCD |
 | `Events.original_doc_refs` | `PS_DOC_HDR_ORIG_DOC[]` | links return → original sale, void → original sale |
 | `Events.transfers` | DOC_TYP XFER | source/dest store, item, quantity (Module D) |
-| `Events.receivers` | DOC_TYP RECVR | vendor, items, quantities, payment if any (Module J) |
+| `Events.receivers` | DOC_TYP RECVR | vendor, items, quantities, payment if any (Module O) |
 | `Events.returns_to_vendor` | DOC_TYP RTV | vendor, items, reason |
 | `Things.items` | `IM_ITEM` | ITEM_NO, CATEG_COD, SUBCAT_COD, ATTR_COD_1/2, MIX_MATCH_COD, REG_PRC, LST_COST, IS_DISCNTBL, STAT |
 | `Things.item_categories` | `IM_CATEG_COD` | CATEG_COD, MIN_PFT_PCT, TRGT_PFT_PCT (margin thresholds) |
@@ -48,7 +48,7 @@ Rules are grouped by what they detect:
 9. **Customer-tier abuse** — wholesale tier on retail-buying customer, tier reassignments
 10. **Mix-and-match abuse** — flat pricing exploited beyond intended bundle structure (garden-center-specific)
 11. **Compliance** — regulatory exposure on restricted-item sales (Prop 65, EPA pesticides/herbicides, age-restricted, bulk-chemical state regs)
-12. **Commercial / B2B** — credit-limit violations, AR aging anomalies, tier-price mismatches, after-hours commercial activity (sourced from Module C signals)
+12. **Commercial / B2B** — credit-limit violations, AR aging anomalies, tier-price mismatches, after-hours commercial activity (sourced from Module M signals)
 
 ## Per-rule definitions
 
@@ -376,49 +376,49 @@ MCP tools expose Q to the agent layer:
 - `add_allow_list_entry(rule_id, customer_id?, item_id?, reason)` — operator-tunable (audit-logged)
 - `dry_run_rule(rule_id, date_range)` — execute the rule without writing detection records (used during deployment + tuning)
 
-### Commercial / B2B (sourced from Module C)
+### Commercial / B2B (sourced from Module M)
 
-Rules in this family are triggered by Module C signals (credit posture, tier classification, AR pattern) rather than direct Counterpoint transaction substrate. C derives the inputs; Q fires the alert via Chirp. These are account-management alerts, not LP fraud alerts — severity intentionally lower, routed to account manager surface in Owl rather than LP queue.
+Rules in this family are triggered by Module M signals (credit posture, tier classification, AR pattern) rather than direct Counterpoint transaction substrate. C derives the inputs; Q fires the alert via Chirp. These are account-management alerts, not LP fraud alerts — severity intentionally lower, routed to account manager surface in Owl rather than LP queue.
 
-**Q-C-01 — At-limit commercial account continues transacting** *(C.4.1 B2B-CREDIT-01)*
+**Q-M-01 — At-limit commercial account continues transacting** *(M.4.1 B2B-CREDIT-01)*
 
 Substrate: `C.CREDIT_POSTURE = AT-LIMIT` signal joined to `Events.transactions` for the same `AR_CUST.CUST_NO` (live transaction stream from T).
-Logic: a commercial account whose C.2.5 credit-posture is AT-LIMIT initiates a new purchase transaction. Alert fires at transaction open, before close.
+Logic: a commercial account whose M.2.5 credit-posture is AT-LIMIT initiates a new purchase transaction. Alert fires at transaction open, before close.
 Parameters: `credit_posture_threshold` (default AT-LIMIT; configurable to PAST-DUE as looser trigger), `min_transaction_amount` (default $0 — any new transaction).
 Allow-list: accounts with an approved credit-hold override flag (manual operator flag per account).
 Severity: medium — account-management alert, not fraud. Routes to account manager in Owl.
 
-**Q-C-02 — Rapid credit consumption before going dark** *(C.4.2 B2B-CREDIT-02)*
+**Q-M-02 — Rapid credit consumption before going dark** *(M.4.2 B2B-CREDIT-02)*
 
-Substrate: `C.CREDIT_UTILIZATION` time-series per `AR_CUST.CUST_NO` — utilization velocity derived by C.2.2.
+Substrate: `C.CREDIT_UTILIZATION` time-series per `AR_CUST.CUST_NO` — utilization velocity derived by M.2.2.
 Logic: account transitions from <20% utilization to >80% utilization within a rolling 14-day window, with no corresponding change in credit limit.
 Parameters: `low_threshold_pct` (default 20%), `high_threshold_pct` (default 80%), `window_days` (default 14).
 Allow-list: accounts with documented seasonal purchase patterns (e.g., landscaper spring ramp — configurable per-account flag).
 Severity: high — collections-risk signal; fires before the account formally enters past-due.
 
-**Q-C-03 — Past-due balance crosses threshold** *(C.4.3 B2B-AR-01)*
+**Q-M-03 — Past-due balance crosses threshold** *(M.4.3 B2B-AR-01)*
 
-Substrate: `C.AR_AGING_BUCKET` signal from C.2.3 (aging bucket transitions) per `AR_CUST.CUST_NO`.
-Logic: account transitions into the 60-day (or operator-configured) aging bucket — C.2.3 detects the transition and publishes the trigger event.
+Substrate: `C.AR_AGING_BUCKET` signal from M.2.3 (aging bucket transitions) per `AR_CUST.CUST_NO`.
+Logic: account transitions into the 60-day (or operator-configured) aging bucket — M.2.3 detects the transition and publishes the trigger event.
 Parameters: `past_due_days_threshold` (default 60), `minimum_balance_dollars` (default $100 to suppress noise on small accounts).
 Allow-list: accounts in documented payment-arrangement status (manual operator flag).
 Severity: medium — account-management alert. Escalate to high if balance > $1,000 (configurable).
 
-**Q-C-04 — Transaction price inconsistent with B2B tier** *(C.4.4 B2B-TIER-01)*
+**Q-M-04 — Transaction price inconsistent with B2B tier** *(M.4.4 B2B-TIER-01)*
 
-Substrate: `Events.transaction_lines.EXT_PRC` joined to `People.customers.CATEG_COD` (tier from C.1.2) and `Things.items` price groups (PS_PRC_GRP via P.1).
+Substrate: `Events.transaction_lines.EXT_PRC` joined to `People.customers.CATEG_COD` (tier from M.1.2) and `Things.items` price groups (PS_PRC_GRP via P.1).
 Logic: a wholesale-tier account is sold at retail price level, or a retail account receives wholesale pricing. Detected per line via realized price vs. expected tier-price range.
 Parameters: `tier_mismatch_tolerance_pct` (default 0% — any mismatch; configurable to allow small overrides).
 Allow-list: accounts with explicit per-item or per-category pricing exceptions (documented in Counterpoint price group overrides).
 Severity: low — data-quality flag, not fraud. Most likely cause is account-setup error. Routes to store manager, not LP queue.
 
-**Q-C-05 — Commercial account transacting outside business hours** *(C.4.5 B2B-PATTERN-01)*
+**Q-M-05 — Commercial account transacting outside business hours** *(M.4.5 B2B-PATTERN-01)*
 
-Substrate: `Events.transactions.BUS_DTE` + `Events.transactions.CRTE_DTE` (timestamp) joined to `People.customers.CATEG_COD = COMMERCIAL` (or equivalent wholesale/landscaper tier from C.1.2).
+Substrate: `Events.transactions.BUS_DTE` + `Events.transactions.CRTE_DTE` (timestamp) joined to `People.customers.CATEG_COD = COMMERCIAL` (or equivalent wholesale/landscaper tier from M.1.2).
 Logic: a flagged-commercial account transacts outside defined business hours for that store. The concern is account-sharing — a commercial account used by non-commercial parties after hours.
 Parameters: `business_hours_start` (per-store from N; default 07:00), `business_hours_end` (per-store; default 19:00), `days_of_week` (default Mon–Sat).
 Allow-list: accounts with documented 24h access (wholesale-delivery accounts, approved contractor access). See ASSUMPTION-C-06 — expect false positives from landscapers who legitimately transact evenings; calibrate allow-list against first 30 days of data.
-Severity: low signal on its own; escalates to medium when combined with Q-C-01 or Q-C-02 signals on the same account.
+Severity: low signal on its own; escalates to medium when combined with Q-M-01 or Q-M-02 signals on the same account.
 
 ## Phasing of rule deployment
 

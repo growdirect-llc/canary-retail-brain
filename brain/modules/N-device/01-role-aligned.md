@@ -131,7 +131,7 @@ sync is unblocked.
 - [[canary-data-model|Canary Data Model]]
 - [[canary-architecture|Canary Architecture]]
 - [[canary-module-t-transactions|Canary Module — T (Transaction Pipeline)]]
-- [[canary-module-r-customer|Canary Module — R (Customer)]]
+- [[canary-module-c-customer|Canary Module — C (Customer)]]
 
 ## Sources
 

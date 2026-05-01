@@ -79,9 +79,9 @@ No v2 SDDs exist yet for D. Projected SDD structure:
 ## Related
 
 - [[../projects/RetailSpine|Retail Spine MOC]]
-- [[canary-module-c-commercial|C (Commercial)]]
+- [[canary-module-m-merchandising|C (Commercial)]]
 - [[canary-module-f-finance|F (Finance)]]
-- [[canary-module-j-forecast-order|J (Forecast & Order)]]
+- [[canary-module-o-orders|J (Orders)]]
 - [[canary-module-q-loss-prevention|Q (Loss Prevention)]] — Q reads D's movements for anomaly correlation
 - [[../platform/RetailSpine|Retail Spine — Ledger relationships]]
 - [[../platform/stock-ledger|Stock Ledger — Perpetual-Inventory Movement Ledger]]

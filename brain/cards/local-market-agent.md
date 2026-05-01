@@ -6,8 +6,8 @@ domain: local-market
 layer: local-market
 feeds:
   - module-q
-  - module-j
-  - module-c
+  - module-o
+  - module-m
   - module-p
   - fox-case-management
 receives:
@@ -38,7 +38,7 @@ Domain module agents (Q, J, C, P) operate on internal retailer data. They have n
 | **Layer** | Local market (below domain PMO, feeds up) |
 | **Instantiation** | One per GEO_REGION or GEO_DISTRICT node |
 | **Lifecycle** | Always-on once geography is onboarded; no SI gate |
-| **Escalation target** | Module Q agent → Controller if LP-relevant; Module C agent for commercial signals |
+| **Escalation target** | Module Q agent → Controller if LP-relevant; Module M agent for commercial signals |
 
 ## Signal Feeds
 
@@ -64,7 +64,7 @@ The agent carries two contexts simultaneously:
 ## Routing Principles
 
 - LP signals (social threat, civil services) route to Module Q agent. The local market agent does not contact civil services directly — all external communication goes through the routing chain defined in [[signal-civil-services]].
-- Commercial signals (seasonality, weather, community intel) route to Module C or Module P agent depending on whether the signal is about demand shift or promotional opportunity.
+- Commercial signals (seasonality, weather, community intel) route to Module M or Module P agent depending on whether the signal is about demand shift or promotional opportunity.
 - Property signals route to Module A (Asset Management) for lease/TI tracking and Module F (Finance) for CAM cost impact.
 - The local market agent does not surface raw feed data to the founder or VAR team. It surfaces processed signals with a recommended action and a consuming agent.
 

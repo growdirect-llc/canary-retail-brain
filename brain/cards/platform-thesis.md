@@ -65,7 +65,7 @@ A cost center's meter has two dials: efficiency and budget adherence.
 | Module L (Labor) | Labor cost per transaction, schedule adherence rate | Labor OTB wallet |
 | Module A (Asset Management) | Asset utilization rate, depreciation vs plan | Capex OTB wallet |
 | Module D (Distribution) | Fill rate, landed cost per unit | Distribution OTB wallet |
-| Module W (Work Execution) | Work order completion rate, time-to-close | — |
+| Module E (Execution) | Work order completion rate, time-to-close | — |
 | Infrastructure Agents | Cost-per-action (GCP spend) vs module SLA | Cloud spend budget (CPA agent) |
 | VAR Operations | Onboarding cycle time, support resolution SLA | — |
 
@@ -78,9 +78,9 @@ A profit center's meter has one dial: performance against plan.
 | Entity | Performance Metric | Plan Authority |
 |--------|-------------------|----------------|
 | Module T (Transaction) | Revenue vs forecast, transaction volume vs plan | Forecast (J) |
-| Module R (Customer) | Customer lifetime value, loyalty earn rate vs target | Commercial (C) |
+| Module C (Customer) | Customer lifetime value, loyalty earn rate vs target | Commercial (C) |
 | Module P (Pricing & Promotion) | Margin vs plan, promotional ROI | Commercial (C) |
-| Module C (Commercial) | OTB utilization rate, sell-through %, gross margin vs plan | Head Office (org layer) |
+| Module M (Merchandising) | OTB utilization rate, sell-through %, gross margin vs plan | Head Office (org layer) |
 | Store (GEO_STORE node) | Comp sales, shrink rate vs benchmark, labor efficiency | District (Q, L) |
 | District (GEO_DISTRICT) | District comp performance, ORC rate vs benchmark | Regional LP, Regional Commercial |
 

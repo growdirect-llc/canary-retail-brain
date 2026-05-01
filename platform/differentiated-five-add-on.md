@@ -49,7 +49,7 @@ T implements a four-stage Valkey-streamed pipeline: webhook → seal → parse �
 
 T currently accepts events from three sources: webhooks (push, near-real-time, signed), polling (pull, periodic, for backfill), and batch (file or admin-initiated import). All three paths funnel into the same seal → parse → merkle → detect pipeline.
 
-### R — Customer
+### C — Customer
 
 **ARTS Customer Model; unified customer entity**
 
@@ -99,7 +99,7 @@ A is the multivariate anomaly-detection workload on the v1 spine. Q's rules are 
 
 **Detection engine (Chirp) + case management (Fox); 37 rules across 10 categories**
 
-Q is the loss-prevention surface — the reference implementation for the [[spine-13-prefix|W (Work Execution)]] module that will generalize this pattern to every domain in v3. Q decomposes into two named subsystems:
+Q is the loss-prevention surface — the reference implementation for the [[spine-13-prefix|W (Execution)]] module that will generalize this pattern to every domain in v3. Q decomposes into two named subsystems:
 
 - **Chirp** — the detection engine. Reads T's parsed transaction stream, evaluates rules across three tiers, fires alerts.
 - **Fox** — the case management surface. Promotes alerts to cases, manages investigation lifecycle, holds the chain-of-custody evidence locker.
@@ -159,7 +159,7 @@ The Differentiated-Five is not the end state; it is the foundation.
 
 Once a retailer runs on v1 — transaction ingestion, loss detection, customer unity, device registry, anomaly baselines — the next operational ask is almost always: "Can you also handle our buying, inventory movement, and financial flow?" This is where v2 ships four more modules (C/D/F/J) to close the commercial, distribution, finance, and forecast-order gaps.
 
-And once v2 is live, v3 generalizes the Chirp+Fox pattern — detection rules, case management, evidence chain, alert routing — to every operational domain: merchandising discrepancies (S), promotion execution (P), labor anomalies (L), and W (Work Execution) as the unified exception surface.
+And once v2 is live, v3 generalizes the Chirp+Fox pattern — detection rules, case management, evidence chain, alert routing — to every operational domain: merchandising discrepancies (S), promotion execution (P), labor anomalies (L), and W (Execution) as the unified exception surface.
 
 Each ring on the spine sits on the previous ring's foundation: v2 assumes T/R/N/A/Q are live and proven; v3 assumes v2 is operational. The operational schema doesn't fork at v2; it expands. New modules read and write the same People × Places × Things × Events × Workflows frame. New detection rules feed into the same Fox case management surface. New agent meshes extend the same MCP toolkit and memory bus.
 
@@ -171,7 +171,7 @@ This is why Canary ships as a platform, not a point solution. The first-ring Dif
 - [[overview|Platform overview]] — positioning and SMB collapse evidence
 - [[arts-adoption|ARTS Adoption]] — standards alignment (T/R/N)
 - [[T-transaction-pipeline|T (Transaction Pipeline)]]
-- [[R-customer|R (Customer)]]
+- [[R-customer|C (Customer)]]
 - [[N-device|N (Device)]]
 - [[A-asset-management|A (Asset Management)]]
 - [[Q-loss-prevention|Q (Loss Prevention)]]
@@ -181,7 +181,7 @@ This is why Canary ships as a platform, not a point solution. The first-ring Dif
 - [[spine-13-prefix|13-prefix spine]] — v1 differentiated-five definition and positioning
 - [[overview|Platform overview]] — SMB collapse thesis and platform market positioning
 - [[T-transaction-pipeline|T (Transaction Pipeline)]] — seal → parse → merkle → detect architecture
-- [[R-customer|R (Customer)]] — privacy-first posture and ARTS mapping
+- [[R-customer|C (Customer)]] — privacy-first posture and ARTS mapping
 - [[N-device|N (Device)]] — device-as-entity and ARTS mapping
 - [[A-asset-management|A (Asset Management)]] — Bubble design and baseline architecture
 - [[Q-loss-prevention|Q (Loss Prevention)]] — Chirp + Fox, 37-rule catalog, chain-of-custody

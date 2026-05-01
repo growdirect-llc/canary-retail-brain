@@ -23,7 +23,7 @@ frozen rules across 10 categories, 3-tier evaluation) plus Fox (case
 management with INSERT-only chain-of-custody evidence enforced at
 the PostgreSQL trigger layer). Q is the most fully-implemented of
 the [[../projects/RetailSpine|Retail Spine]] Differentiated-Five
-modules and the reference implementation for v3 W (Work Execution),
+modules and the reference implementation for v3 W (Execution),
 which will generalize the same pattern to every domain on the spine.
 
 This wiki article is the Canary-specific crosswalk for Q. The
@@ -170,7 +170,7 @@ Q is the most agent-rich module on v1.
 - [[canary-architecture|Canary Architecture]]
 - [[canary-detection|Canary Detection Engine]] — full Chirp doc
 - [[canary-module-t-transactions|Canary Module — T]] — primary input
-- [[canary-module-r-customer|Canary Module — R]]
+- [[canary-module-c-customer|Canary Module — R]]
 - [[canary-module-n-device|Canary Module — N]]
 - [[canary-module-a-asset-management|Canary Module — A]]
 

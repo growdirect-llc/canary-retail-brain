@@ -179,7 +179,7 @@ Timeline metadata schema:
 | L4 ID | Method | Inputs | Behavior |
 |-------|--------|--------|----------|
 | Q.3.1.1 | `get_cases(merchant_id, status, created_after, page, limit)` | merchant_id required; status/created_after optional filters | Query FoxCase (→ hawk_cases), desc by opened_at, paginated; returns (cases, pagination) |
-| Q.3.1.2 | `get_case_by_id(case_id, merchant_id)` | case_id + merchant_id | `.one()` — raises NoResultFound if not found (Hawk equivalent uses `.first()` + caller handles None — see W.3.1.2) |
+| Q.3.1.2 | `get_case_by_id(case_id, merchant_id)` | case_id + merchant_id | `.one()` — raises NoResultFound if not found (Hawk equivalent uses `.first()` + caller handles None — see E.3.1.2) |
 | Q.3.2.1 | `add_subject(case_id, subject_type, entity_id, name, role)` | subject_type in VALID_SUBJECT_TYPES | Validate subject_type; `resolve_entity()` for employee type (checks Employee table); INSERT FoxSubject (→ hawk_subjects); flush |
 | Q.3.2.2 | `add_action(case_id, action_type, description, user_id)` | action_type in VALID_ACTION_TYPES | INSERT FoxCaseAction (→ hawk_actions); INSERT FoxCaseTimeline (→ hawk_timeline) event_type="action_added"; flush |
 | Q.3.3.1 | `get_case_evidence(case_id)` | case_id | Query FoxEvidence ordered by uploaded_at ASC |

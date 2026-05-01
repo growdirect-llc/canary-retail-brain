@@ -8,7 +8,7 @@ feeds:
   - module-q
   - module-l
   - module-f
-  - module-w
+  - module-e
 receives:
   - merchant-org-hierarchy
   - geography-hierarchy

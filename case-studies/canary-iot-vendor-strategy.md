@@ -127,12 +127,12 @@ Each new IoT source is a movement type on the perpetual ledger. The Morrisons fr
 |---|---|---|---|
 | **T (Transaction)** | Foot-traffic events enrich transaction stream (peak-time sales correlation) | Read foot-count; correlate to transaction spikes | Existing hooks in VSM |
 | **D (Distribution)** | Shelf-state events validate on-hand accuracy (stockout alerts, over-stock warnings) | Read RFID shelf state; compare to ledger SOH | New: RFID integration point |
-| **J (Forecast & Order)** | Foot traffic + dwell-and-flow input to demand forecast; stockout alerts feed replenishment | Read foot-count + dwell; input to ML demand model | New: IoT signal to forecast engine |
-| **S (Space, Range, Display)** | Shelf-state RFID + camera validation of planogram compliance; stockout automation | Read RFID occupancy; validate planogram position occupation | New: IoT validation layer |
-| **L (Labor & Workforce)** | Foot traffic + zone dwell input to labor scheduling optimization | Read foot-traffic per hour + zone dwell; input to schedule-optimization algorithm | New: IoT signal to scheduling |
+| **J (Orders)** | Foot traffic + dwell-and-flow input to demand forecast; stockout alerts feed replenishment | Read foot-count + dwell; input to ML demand model | New: IoT signal to forecast engine |
+| **S (Space)** | Shelf-state RFID + camera validation of planogram compliance; stockout automation | Read RFID occupancy; validate planogram position occupation | New: IoT validation layer |
+| **L (Labor)** | Foot traffic + zone dwell input to labor scheduling optimization | Read foot-traffic per hour + zone dwell; input to schedule-optimization algorithm | New: IoT signal to scheduling |
 | **P (Pricing & Promotion)** | On-shelf price-label compliance via camera vision; markdown velocity via dwell | Read camera shelf images; compare displayed price to list; dwell patterns | New: camera integration for pricing |
 | **Q (Loss Prevention)** | Equipment-health alerts (fridge/freezer failures, cash-drawer tampering), stockout investigations | Read equipment status; alert on anomalies | New: IoT alert routing to Q |
-| **W (Work Execution)** | Cross-domain exception detection includes IoT anomalies (shelf vacancy, equipment failure) | Read all IoT exception signals; aggregate with other domain signals | New: W subscribes to IoT exceptions |
+| **W (Execution)** | Cross-domain exception detection includes IoT anomalies (shelf vacancy, equipment failure) | Read all IoT exception signals; aggregate with other domain signals | New: W subscribes to IoT exceptions |
 
 **Impact:** IoT extends the perpetual ledger's observability to the physical store. Forecast, labor scheduling, space optimization, and loss prevention all improve with real-time environmental signal.
 
@@ -396,9 +396,9 @@ Time-to-First-Merchant:
 
 - [[../platform/satoshi-precision-operating-model|Satoshi-Precision Operating Model]] — The vision that IoT is the next wave of perpetual-ledger movement sources
 - [[../platform/perpetual-vs-period-boundary|Perpetual-vs-Period Boundary]] — Staged migration framing (parallel-observer → modular-cutover → full-cutover) that applies to IoT adoption
-- [[../modules/J-forecast-order.md|Module J — Forecast & Order]] — Integrates foot-traffic IoT signal into demand forecasting
-- [[../modules/S-space-range-display.md|Module S — Space, Range, Display]] — Integrates shelf-state IoT (RFID) for planogram compliance validation
-- [[../modules/L-labor-workforce.md|Module L — Labor & Workforce]] — Integrates foot-traffic signal for labor scheduling optimization
+- [[../modules/O-orders.md|Module O — Orders]] — Integrates foot-traffic IoT signal into demand forecasting
+- [[../modules/S-space.md|Module S — Space]] — Integrates shelf-state IoT (RFID) for planogram compliance validation
+- [[../modules/L-labor.md|Module L — Labor]] — Integrates foot-traffic signal for labor scheduling optimization
 - [[canary-finance-architecture-options.md|v2.F Finance Architecture Options ADR]] — The Morrisons pattern reference; Option C (Integrated Hybrid) is the model this IoT ADR extends
 
 ---

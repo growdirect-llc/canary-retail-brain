@@ -211,7 +211,7 @@ The OTB calculation requires all three:
 
 The v2.F (Finance) module owns the value-method choice and period close.
 
-The v2.J (Forecast & Order) module owns the forecast and the replenishment recommendation.
+The v2.J (Orders) module owns the forecast and the replenishment recommendation.
 
 The v2.C (Commercial) module owns OTB calculation and the PO commitment gate.
 
@@ -246,7 +246,7 @@ Most retailers use soft mode: over-OTB buys are allowed but tracked. At month-en
 
 **v2.F (Finance)** — Owns the value-method decision (RIM or Cost per department). Implements period close with the correct cost-complement or cost-flow calculation. Publishes cost-update events when landed cost changes or markdown events change the retail price.
 
-**v2.J (Forecast & Order)** — Reads the ledger's movement history to derive demand forecast. Calculates replenishment points and order quantities. Consumes OTB headroom from v2.C and checks it before recommending POs.
+**v2.J (Orders)** — Reads the ledger's movement history to derive demand forecast. Calculates replenishment points and order quantities. Consumes OTB headroom from v2.C and checks it before recommending POs.
 
 **v2.C (Commercial)** — Maintains the item master, department hierarchy, supplier master. Calculates OTB per department and buyer. Enforces the OTB gate on PO commitment (accepts or rejects POs based on available headroom).
 

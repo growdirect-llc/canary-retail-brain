@@ -1,4 +1,6 @@
 ---
+title: L — Labor
+nav_order: 12
 classification: confidential
 owner: GrowDirect LLC
 type: module-spec
@@ -7,9 +9,9 @@ status: v3 (design)
 sibling-modules: [S, P, W]
 ---
 
-# L — Labor & Workforce
+# L — Labor
 
-L owns scheduling, time tracking, payroll integration touchpoints, labor productivity analytics, and employee profile management. L is the people-side dimension that complements R (Customer) on the customer-facing side — the employee as a first-class entity in the retail operating system.
+L owns scheduling, time tracking, payroll integration touchpoints, labor productivity analytics, and employee profile management. L is the people-side dimension that complements C (Customer) on the customer-facing side — the employee as a first-class entity in the retail operating system.
 
 L is one of the [[spine-13-prefix#v3-full-spine-s-p-l-w|v3 full-spine expansion]] modules. It closes the workforce gap that every SMB retailer needs: scheduling staff to match traffic, time tracking to validate labor costs, and productivity signals that feed into store operations analytics.
 
@@ -25,7 +27,7 @@ L owns four jobs:
 L does **not** own:
 
 - Payment processing or payroll execution. Payroll is external.
-- Store traffic forecasting. That belongs to [[J-forecast-order|J (Forecast & Order)]].
+- Store traffic forecasting. That belongs to [[J-forecast-order|J (Orders)]].
 - Workforce planning or headcount forecasting. That is a merchant-level strategic function.
 - Compensation strategy or benefit administration. That is HR/payroll system.
 
@@ -93,8 +95,8 @@ L reads from (no write):
 - **Payroll system (external)** — L exports time entries; payroll calculates pay and deductions
 - **T (Transaction Pipeline)** — T records employee (cashier) on every transaction for productivity calculation and LP context
 - **Q (Loss Prevention)** — Q uses L's employee records to identify subjects of interest; shrink may be attributed to specific employees in case investigation
-- **J (Forecast & Order)** — J reads L's productivity metrics to optimize staffing schedules and replenishment timing
-- **S (Space, Range, Display)** — S reads L's schedule to validate that labor is available for planogram changes or restocking
+- **J (Orders)** — J reads L's productivity metrics to optimize staffing schedules and replenishment timing
+- **S (Space)** — S reads L's schedule to validate that labor is available for planogram changes or restocking
 - **Store operations dashboard** — displays schedule adherence, productivity trends, staffing alerts (over/under budget)
 
 ## Agent surface
@@ -140,9 +142,9 @@ L exposes MCP tool families for store-management and scheduling workflows:
 - [[../../GrowDirect/Brain/wiki/secure-property-services-operating-model-2002|Secure Property Services Operating Model — Workforce planning reference]]
 - [[T-transaction-pipeline|T (Transaction Pipeline)]]
 - [[Q-loss-prevention|Q (Loss Prevention)]]
-- [[J-forecast-order|J (Forecast & Order)]]
-- [[S-space-range-display|S (Space, Range, Display)]]
-- [[W-work-execution|W (Work Execution)]]
+- [[J-forecast-order|J (Orders)]]
+- [[S-space-range-display|S (Space)]]
+- [[W-work-execution|W (Execution)]]
 
 ## Sources
 
@@ -151,4 +153,4 @@ L exposes MCP tool families for store-management and scheduling workflows:
 
 ---
 
-*Classification: confidential. Owner: GrowDirect LLC. Created 2026-04-24. L (Labor & Workforce) is a v3 module spec within the Canary Retail Spine. It is design-stage; implementation is deferred pending v2 ring (C/D/F/J) stabilization.*
+*Classification: confidential. Owner: GrowDirect LLC. Created 2026-04-24. L (Labor) is a v3 module spec within the Canary Retail Spine. It is design-stage; implementation is deferred pending v2 ring (C/D/F/J) stabilization.*

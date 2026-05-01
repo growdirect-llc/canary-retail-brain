@@ -5,12 +5,12 @@ card-version: 1
 domain: merchandising
 layer: infra
 feeds:
-  - module-c
+  - module-m
   - module-p
-  - module-j
+  - module-o
   - module-f
 receives:
-  - module-c
+  - module-m
   - cpa-agent
 tags: [l402, lightning, otb, open-to-buy, micropayment, accountability, mcp, spend-control]
 status: draft

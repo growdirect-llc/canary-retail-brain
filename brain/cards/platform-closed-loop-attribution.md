@@ -53,7 +53,7 @@ The closed-loop model runs five attribution layers simultaneously. Every layer h
 
 - **Controller agent** — uses this model to route escalations, attribute cross-module variances, and score module performance against plan
 - **Module Q (Loss Prevention)** — operationalizes physical and transaction layer attribution via Chirp rules and Fox cases
-- **Module C (Commercial)** — accountable for commercial layer failures; buyer and planner performance is measured against this model
+- **Module M (Merchandising)** — accountable for commercial layer failures; buyer and planner performance is measured against this model
 - **Module D (Distribution)** — vendor shortage and receiving discrepancy attribution path
 - **Infrastructure agents (CPA)** — compute and network layer attribution; cost-per-action audit against this model
 

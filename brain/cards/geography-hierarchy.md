@@ -58,7 +58,7 @@ The same `GEO_STORE` node also exists in the [[category-hierarchy]] as the point
 | **Local Market Agent** | Agent instantiated at GEO_REGION or GEO_DISTRICT — monitors all signal feeds for that geography |
 | **Signal: Civil Services** | Liaison routing scoped to GEO_DISTRICT |
 | **Signal: Weather + Zone SEO** | Weather zones map to GEO_DISTRICT or GEO_REGION |
-| **Module J (Forecast)** | Regional demand curves inform replenishment planning |
+| **Module O (Forecast)** | Regional demand curves inform replenishment planning |
 
 ## Related
 
