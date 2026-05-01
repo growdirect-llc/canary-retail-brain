@@ -151,16 +151,30 @@ base_platform_floor:
   enterprise_tier: 1000000
 
 revshare:
-  channels:
-    counterpoint:
+  # V1.1 schema — keyed by partner_id, supports multi-VAR per source.
+  # See canary-go-ncr-counterpoint-crosswalk for rationale.
+  channel_partners:
+    rapidpos:
       partner_id: "rapidpos-uuid"
-      share: 0.20            # 20% of satoshis flowing through Counterpoint events
+      share: 0.20                       # 20% of satoshis flowing through this channel
       lightning_address: "rapidpos@payments.example"
-    square:
-      share: 0.0             # no channel partner
-    shopify:
+      sources: ["counterpoint"]         # which source codes route through this partner
+    ncr-direct:
+      partner_id: null                  # null = direct-merchant relationship, no rev-share
       share: 0.0
-  microservices: []          # populated when partner-contributed services register
+      lightning_address: null
+      sources: ["counterpoint"]
+    square-direct:
+      partner_id: null
+      share: 0.0
+      lightning_address: null
+      sources: ["square"]
+    shopify-direct:
+      partner_id: null
+      share: 0.0
+      lightning_address: null
+      sources: ["shopify"]
+  microservices: []                     # populated when partner-contributed services register
 ```
 
 ### Validation rules
@@ -221,14 +235,15 @@ type Calibration struct {
 }
 
 type RevshareConfig struct {
-    Channels      map[string]ChannelShare      // keyed by source code
-    Microservices map[string]ServiceShare      // keyed by service name
+    ChannelPartners map[string]ChannelPartner   // keyed by var_of_record_label
+    Microservices   map[string]ServiceShare     // keyed by service name
 }
 
-type ChannelShare struct {
-    PartnerID         uuid.UUID
+type ChannelPartner struct {
+    PartnerID         *uuid.UUID                 // nil for direct-merchant relationships
     Share             float64
-    LightningAddress  string
+    LightningAddress  *string                    // nil for direct
+    Sources           []string                   // which SourceCodes route through this channel
 }
 
 type ServiceShare struct {
@@ -395,6 +410,23 @@ A small library at `internal/cost/middleware.go` provides Chi middleware that em
 
 At period end (configurable per merchant; default monthly), a reconciliation job generates a usage statement, computes Merkle root, commits to L2, and triggers Lightning settlement.
 
+### Schema addition for VAR-of-record attribution
+
+```sql
+-- deploy/migrations/cost-rollup/0004_var_of_record.up.sql
+
+-- VAR-of-record stamped at merchant onboarding via canary-identity.
+-- Drives channel rev-share attribution per the V1.1 schema.
+ALTER TABLE app.merchants
+  ADD COLUMN var_of_record_label TEXT NULL;
+
+CREATE INDEX merchants_var_of_record_idx
+  ON app.merchants (var_of_record_label)
+  WHERE var_of_record_label IS NOT NULL;
+```
+
+`var_of_record_label` is the key into `revshare.channel_partners`. Its value is captured at merchant onboarding (`POST /merchants` accepts `var_of_record_label` field). Examples: `"rapidpos"`, `"ncr-direct"`, `"square-direct"`, `"shopify-direct"`.
+
 ### Rollup query
 
 ```sql
@@ -403,18 +435,36 @@ At period end (configurable per merchant; default monthly), a reconciliation job
 -- name: PeriodRollup :many
 WITH events AS (
     SELECT
-        merchant_id, service, event_type, tier, source_code,
-        SUM(quantity) AS total_quantity,
-        SUM(sat_cost) AS total_sats,
+        e.merchant_id, e.service, e.event_type, e.tier, e.source_code,
+        m.var_of_record_label,                          -- channel attribution
+        SUM(e.quantity) AS total_quantity,
+        SUM(e.sat_cost) AS total_sats,
         COUNT(*) AS event_count
-    FROM metrics.cost_events
-    WHERE merchant_id = $1
-      AND occurred_at >= $2
-      AND occurred_at < $3
-      AND settlement_id IS NULL
-    GROUP BY merchant_id, service, event_type, tier, source_code
+    FROM metrics.cost_events e
+    JOIN app.merchants m ON e.merchant_id = m.id
+    WHERE e.merchant_id = $1
+      AND e.occurred_at >= $2
+      AND e.occurred_at < $3
+      AND e.settlement_id IS NULL
+    GROUP BY e.merchant_id, e.service, e.event_type, e.tier, e.source_code,
+             m.var_of_record_label
 )
 SELECT * FROM events ORDER BY service, event_type, tier;
+
+-- name: ChannelRevshareRollup :many
+-- Per-channel-partner rev-share for a period, keyed by var_of_record_label
+SELECT
+    m.var_of_record_label,
+    e.source_code,
+    SUM(e.sat_cost) AS total_sats,
+    COUNT(*) AS event_count
+FROM metrics.cost_events e
+JOIN app.merchants m ON e.merchant_id = m.id
+WHERE e.occurred_at >= $1
+  AND e.occurred_at < $2
+  AND m.var_of_record_label IS NOT NULL
+GROUP BY m.var_of_record_label, e.source_code
+ORDER BY total_sats DESC;
 ```
 
 ### Statement document
