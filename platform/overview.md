@@ -37,7 +37,7 @@ Each page below covers an architectural primitive or commitment that defines the
 |---|---|
 | [Retail Accounting Method](retail-accounting-method) | RIM vs Cost Method. Open-To-Buy as the planning constraint. Integrated-hybrid as the default route for v2.F. |
 | [Perpetual vs Period Boundary](perpetual-vs-period-boundary) | The staged migration story — Phase 1 parallel observer mode (zero adoption friction), Phase 2 module-by-module cutover at merchant pace, Phase 3 Canary as system of record. Every cutover reversible until Phase 3. |
-| [Satoshi Cost Accounting](satoshi-cost-accounting) | Sub-cent unit cost as Canary's substrate primitive. Closes the 2002-vintage two-decimal precision gap that fiat-rounded WAC has carried for two decades. |
+| [Satoshi Cost Accounting](satoshi-cost-accounting) | Sub-cent unit cost as Canary's substrate primitive. Closes the two-decimal precision gap that fiat-rounded WAC has carried in conventional retail ledgers. |
 | [Satoshi Precision Operating Model](satoshi-precision-operating-model) | The top-down precision commitment — extends satoshi precision from COGS to Customer Acquisition Cost, SG&A, and IoT-tracked movement events. Every cost decomposed to its originating event with audit trail. Unifies the 13-module spine as instruments of cost decomposition. |
 
 ### Platform commitments

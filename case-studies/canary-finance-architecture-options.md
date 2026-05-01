@@ -13,7 +13,7 @@ author: Geoffrey C. Lyle
 
 ## Executive Summary
 
-Canary is at a fork in the road for v2.F (Finance). The Morrisons option-evaluation frame reveals a **clear winner:** Option C (Integrated hybrid). This decision prioritizes merchant adoption ease and time-to-value over native GL ownership, couples Canary's perpetual-movement layer to the merchant's existing accounting package via OAuth, and defers the full RIM (Real/Integrated Merchandise accounting) complexity to v3.
+Canary is at a fork in the road for v2.F (Finance). The option-evaluation frame reveals a **clear winner:** Option C (Integrated hybrid). This decision prioritizes merchant adoption ease and time-to-value over native GL ownership, couples Canary's perpetual-movement layer to the merchant's existing accounting package via OAuth, and defers the full RIM (Real/Integrated Merchandise accounting) complexity to v3.
 
 **Recommendation:** Option C. Phase 1: Cost Method only + invoice 3-way match. Phase 2 (v3): RIM via the same OAuth bridge.
 
@@ -580,7 +580,7 @@ Verdict: Clear winner. Option C enables a 5-year roadmap without architectural d
 
 ## Conclusion
 
-Canary v2.F adopts **Option C** (Integrated Hybrid). This decision prioritizes **merchant trust, rapid time-to-market, and architectural durability**. The perpetual-vs-period boundary is clean, defensible, and extensible to RIM (v3) and beyond. Canary remains the expert in loss-prevention retail accounting (perpetual cost, variance, COGS accuracy) while ceding GL and statutory reporting to the merchant's native package. This is the pattern enterprise retailers (JDA, Retek, SAP, Manhattan) have used for 20 years. We're building the SMB equivalent.
+Canary v2.F adopts **Option C** (Integrated Hybrid). This decision prioritizes **merchant trust, rapid time-to-market, and architectural durability**. The perpetual-vs-period boundary is clean, defensible, and extensible to RIM (v3) and beyond. Canary remains the expert in loss-prevention retail accounting (perpetual cost, variance, COGS accuracy) while ceding GL and statutory reporting to the merchant's native package. The integrated-hybrid posture is well-established at the enterprise tier; Canary is shipping it to the SMB tier where it has not been available.
 
 **Ship v2.0 MVP in Q3 2026. Measure merchant adoption and GL integration stability. Phase to v3 (RIM) in Q2 2027.**
 

@@ -19,7 +19,7 @@ nav_order: 4
 
 ## Why ODS, not EDW
 
-The 2005-vintage enterprise reference architecture for retail BI assumes
+The conventional enterprise reference architecture for retail BI assumes
 a five-tier stack: Operational systems → ODS (operational data store) →
 EDW (enterprise data warehouse) → marts → reports. That stack costs $5–$50M
 to stand up and is the reason SMB retailers run on POS reports + Excel.

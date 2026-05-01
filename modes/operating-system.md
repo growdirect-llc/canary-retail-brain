@@ -13,7 +13,7 @@ Canary as the retail backbone. Replace the on-premise backoffice. The platform r
 
 ## Who it's for
 
-Specialty retailers, ~$5M to ~$50M annual sales, running aging Counterpoint, Epicor, or Retek-derivative backoffices. Wearing every hat. Want the department they cannot afford to hire.
+Specialty retailers, ~$5M to ~$50M annual sales, running aging on-premise backoffices (Counterpoint, Epicor, or comparable legacy stacks). Wearing every hat. Want the department they cannot afford to hire.
 
 ## What changes
 

@@ -17,7 +17,7 @@ The unified item authorization model: the convergence of item master eligibility
 
 ## Purpose
 
-This is the gap Retek never closed. Item status lived in the item master. Regulatory restrictions lived in the site master — when they were maintained at all. Planogram listing state lived in the space planning system, loosely synchronized on a batch cycle. Operational blocks (recall, LP hold, merchant clearance-only designation, legal hold) lived in POS parameter files, spreadsheet emails to the POS team, and, frequently, nowhere recoverable at all. The POS became the de facto convergence point — it had to carry local copies of all these dimensions in its own parameter database — with all the synchronization failure modes that implies. An item cleared for recall in the item master might remain saleable at POS for days. An age-restricted item might sell freely at a store in a jurisdiction where local ordinance requires electronic ID verification. A planogram reset might remove an item from the shelf while the listing system still authorizes replenishment.
+This is the convergence gap conventional retail platforms have never closed. Item status lived in the item master. Regulatory restrictions lived in the site master — when they were maintained at all. Planogram listing state lived in the space planning system, loosely synchronized on a batch cycle. Operational blocks (recall, LP hold, merchant clearance-only designation, legal hold) lived in POS parameter files, spreadsheet emails to the POS team, and, frequently, nowhere recoverable at all. The POS became the de facto convergence point — it had to carry local copies of all these dimensions in its own parameter database — with all the synchronization failure modes that implies. An item cleared for recall in the item master might remain saleable at POS for days. An age-restricted item might sell freely at a store in a jurisdiction where local ordinance requires electronic ID verification. A planogram reset might remove an item from the shelf while the listing system still authorizes replenishment.
 
 Item authorization exists as a distinct model because no other module owns the convergence. Each upstream system owns one dimension. No upstream system owns the synthesized answer. Without a unified authorization model, the POS is the system of record by default — and that is the worst possible place for it to be.
 
@@ -73,7 +73,7 @@ Each operational block must carry: the blocking authority (team + individual), t
 
 ## The convergence failure
 
-The traditional Retek implementation kept all four dimensions in separate systems with no unified query surface. The consequences were predictable:
+The traditional implementation pattern kept all four dimensions in separate systems with no unified query surface. The consequences were predictable:
 
 - Recalled items remained saleable at POS until the POS team processed a manual parameter update — sometimes 24–48 hours after the recall was issued in the item master
 - Age-restricted items sold without verification at sites where the site master's regulatory zone data was stale or misconfigured

@@ -116,8 +116,8 @@ merchants run on guesses.
 
 ### 4. IoT-tracked movement (the new perpetual-event source)
 
-The 2002-vintage perpetual ledger ingested only POS movements. Modern
-retail has 100× the meaningful events available, gated only by
+The earlier generation of perpetual ledgers ingested only POS movements.
+Modern retail has 100× the meaningful events available, gated only by
 instrumentation. The Internet of Things is the instrumentation.
 
 Movement sources that an IoT-enabled Canary install captures as
@@ -281,6 +281,4 @@ pattern.
 - Goose / GRO-117 — production GasMeter shipping satoshi-precision per-tool metering
 - L402 protocol — Lightning auth + payment substrate for sub-cent metered access
 - Satoshi-cost-accounting article — COGS-side foundation
-- Retek RMS perpetual-inventory ledger pattern — the substrate the principle is built on
-- IBM BCS 2006 Clarks Retail Diagnostic — the "where every cent went" diagnostic frame this principle delivers on
 - IoT instrumentation industry references — Density, RetailNext, Impinj, Verkada, monnit (vendor research deferred to v3 work)

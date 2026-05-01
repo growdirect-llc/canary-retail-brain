@@ -225,5 +225,4 @@ The Virtual Store Manager (VSM) is the conversational front door over that perpe
 
 - v2.F Finance Architecture Options ADR (this principle's worked-example origin)
 - Morrisons IT Architecture Final Deliverable v1.0 (IBM BCS, 2006) — the Sell/Plan/Move/Buy + Legacy/Package/Integrated frame
-- Retek RMS perpetual-inventory ledger pattern (the substrate the perpetual side posts to)
 - GrowDirect Viewpoint — Virtual Store Manager on a Perpetual Ledger

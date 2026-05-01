@@ -89,7 +89,7 @@ Examples:
 - Transfer: location A decreases, location B increases by the same quantity.
 - Adjustment: in-place change with mandatory reason code (e.g., "count variance," "damaged goods," "price adjustment").
 
-The reason-code requirement is the mechanism that enforces conservation. In the RMS user guide, it is stated plainly: *"When adjusting total stock on hand, you must select a reason for the adjustment. The reason indicates why the total stock on hand must be adjusted."* No ad-hoc changes without a recorded reason. This is the governance layer of the ledger.
+The reason-code requirement is the mechanism that enforces conservation. No ad-hoc changes without a recorded reason — every adjustment to total stock on hand carries the reason for why the adjustment was needed. This is the governance layer of the ledger.
 
 ### 2. Cost-Method Consistency
 
@@ -242,7 +242,6 @@ The infrastructure is already in place. The buildout is systematic.
 
 - [[retail-accounting-method|Retail Accounting Method — RIM, Cost Method, Open To Buy]]
 - [[satoshi-cost-accounting|Satoshi-Level Cost Accounting — Sub-Cent Unit Cost on the Stock Ledger]]
-- [[../../GrowDirect/Brain/wiki/retek-rms-perpetual-inventory|Retek RMS Perpetual Inventory]] (detailed historical reference)
 - [[../../GrowDirect/Brain/wiki/third-branch|The Third Branch]] (three-canonical framing)
 - [[../../GrowDirect/Brain/wiki/intactix-canonical-validation|Intactix Canonical Validation]] (ordering gate against the ledger)
 - [[../../GrowDirect/Brain/wiki/tesco-technical-library|Tesco Technical Library]] (pack-copy compile gate)

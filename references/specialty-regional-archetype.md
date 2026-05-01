@@ -50,7 +50,7 @@ Certain seed varieties and plant species are restricted or prohibited in specifi
 
 ### The infrastructure displacement story lands hard here
 
-This archetype is almost certainly running an aging backoffice stack — Epicor, Counterpoint, or a Retek derivative — with on-premise servers, SQL Server licenses, MSP contracts, and a POS parameter management workflow that requires a dedicated internal team. Canary eliminates that liability directly.
+This archetype is almost certainly running an aging backoffice stack — Epicor, Counterpoint, or a comparable legacy on-premise system — with on-premise servers, SQL Server licenses, MSP contracts, and a POS parameter management workflow that requires a dedicated internal team. Canary eliminates that liability directly.
 
 - The backoffice server goes away.
 - The parameter file distribution cycle goes away.

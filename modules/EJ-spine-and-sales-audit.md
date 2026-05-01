@@ -14,15 +14,19 @@ last-compiled: 2026-04-24
 
 # Canary EJ Spine + Sales Audit — the Canary-Native Naming for the Perpetual Layer
 
-> **Naming alignment.** The CATz substrate articles describe a generic
-> "perpetual movement layer" pattern (derived from the Retek RMS
-> stock-ledger framing). In Canary's actual code and Linear backlog,
-> this layer is named the **EJ Spine** (Electronic Journal). The
-> projection layer that scrubs and aggregates the EJ stream into
-> period-summary outputs that downstream tools consume is named
-> **Sales Audit** (the ReSA pattern from Retek). This article anchors
-> the naming so the substrate primitives, the merchant tool integrations,
-> and the agent surfaces use one vocabulary.
+> **Canary IP — naming and layer model.** EJ Spine and Sales Audit are
+> Canary's named primitives. The **EJ Spine** (Electronic Journal) is
+> the perpetual movement layer that lands every operational signal from
+> a connected POS as a hash-chained, append-only event stream against
+> the canonical retail data model. **Sales Audit** is the projection
+> layer that scrubs and aggregates the EJ stream into the period-summary
+> outputs downstream merchant tools (accounting, payroll, CRM, e-commerce)
+> actually consume. The tie between EJ Spine, Sales Audit, the perpetual
+> stock ledger, and Canary's satoshi-precision cost calculation is
+> original Canary design — these names appear in the codebase and the
+> Linear backlog. This article anchors the naming so the substrate
+> primitives, the merchant tool integrations, and the agent surfaces use
+> one vocabulary.
 
 ## The TSP orchestration that writes the EJ Spine
 
@@ -182,8 +186,7 @@ Raw EJ output is too noisy for downstream consumers. It contains:
 - Pending events that have not yet completed
 - Edge-case transactions that need human adjudication (dispute-in-progress, etc.)
 
-**Sales Audit** (named for and patterned on Retek's ReSA — the Sales
-Audit module) is the projection layer that:
+**Sales Audit** is Canary's projection layer:
 
 1. **Scrubs** — drops or flags non-authoritative events (cancelled,
    duplicate, test, pending, adjudication-needed) so downstream
@@ -284,7 +287,6 @@ can fold it in cleanly.
 
 ## Sources
 
-- Direct user correction, 2026-04-24 — "it's the EJ the transaction spine / it has everything / sales audit scrubs things out and aggregates"
+- Direct founder design intent, 2026-04-24 — "it's the EJ the transaction spine / it has everything / sales audit scrubs things out and aggregates"
 - `docs/sdds/canary/data-model.md` — `ej_links` table definition
 - Linear: GRO-281, GRO-282, GRO-293 (EJ Spine UI/API work)
-- Retek ReSA pattern (referenced in `Brain/wiki/retek-rms-perpetual-inventory.md`)

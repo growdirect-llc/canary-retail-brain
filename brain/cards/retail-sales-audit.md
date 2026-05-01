@@ -7,7 +7,7 @@ layer: domain
 status: approved
 feeds: [retail-operations-kpis, retail-inventory-valuation-mac]
 receives: [retail-site-management, retail-merchandise-hierarchy]
-tags: [sales-audit, POS, transaction-audit, till-balancing, over-short, cash-reconciliation, ACH, ReSA, financial-control]
+tags: [sales-audit, POS, transaction-audit, till-balancing, over-short, cash-reconciliation, ACH, financial-control]
 last-compiled: 2026-04-29
 ---
 

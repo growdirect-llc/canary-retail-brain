@@ -11,15 +11,15 @@ nav_order: 10
 
 # Satoshi-Level Cost Accounting — Sub-Cent Unit Cost on the Stock Ledger
 
-**Governing thesis.** The perpetual stock ledger as inherited from 2002-vintage retail systems (Retek, Oracle Retail, JDA) was constrained to two-decimal currency: unit costs round to $0.01, which is fine for items costing $10–$100 but catastrophic for fractional-cent items (shipping micro-fees per unit, loyalty-points cost basis, metered API consumption per transaction, Lightning channel routing fees). Canary's innovation is **satoshi-level cost accounting** — unit cost tracked in satoshis (the atomic unit of Bitcoin: 1 sat = 0.00000001 BTC ≈ $0.0001 USD at current rates) at the ledger layer, with fiat rounding captured at posting time. The ledger schema carries both `cost_msat BIGINT` (millisatoshis, for fine-grain precision) and `cost_usd_cents INT` (fiat rounding). Reconciliation tolerates the rounding gap. This is not "Bitcoin for Bitcoin's sake." It is the **only available unit for cost accounting on a retail ledger that wants to track agent-mediated transactions, metered consumption, and sub-cent operational costs**. The Goose implementation (GRO-117, already shipping) is the production proof: the GasMeter service prices 11 Canary operations from 0 to 500 sats and posts to per-merchant prepaid wallets. Extending that pattern to unit-cost-on-goods is the next move.
+**Governing thesis.** Conventional perpetual stock ledgers are constrained to two-decimal currency: unit costs round to $0.01, which is fine for items costing $10–$100 but catastrophic for fractional-cent items (shipping micro-fees per unit, loyalty-points cost basis, metered API consumption per transaction, Lightning channel routing fees). Canary's innovation is **satoshi-level cost accounting** — unit cost tracked in satoshis (the atomic unit of Bitcoin: 1 sat = 0.00000001 BTC ≈ $0.0001 USD at current rates) at the ledger layer, with fiat rounding captured at posting time. The ledger schema carries both `cost_msat BIGINT` (millisatoshis, for fine-grain precision) and `cost_usd_cents INT` (fiat rounding). Reconciliation tolerates the rounding gap. This is not "Bitcoin for Bitcoin's sake." It is the **only available unit for cost accounting on a retail ledger that wants to track agent-mediated transactions, metered consumption, and sub-cent operational costs**. The Goose implementation (GRO-117, already shipping) is the production proof: the GasMeter service prices 11 Canary operations from 0 to 500 sats and posts to per-merchant prepaid wallets. Extending that pattern to unit-cost-on-goods is the next move.
 
 > **Note:** This article is the COGS-side foundation of the precision principle. The full operating-model commitment — extending satoshi precision to Customer Acquisition Cost, SG&A, and IoT-tracked movement events — is named in [[satoshi-precision-operating-model|Satoshi-Precision Operating Model]]. Read that article for the spine-wide implication; this article remains the COGS-specific deep dive.
 
 ---
 
-## The 2002 Ledger's Hidden Constraint
+## The Two-Decimal Cost Constraint
 
-The perpetual stock ledger as designed at Retek and Oracle Retail in the 1990s–2000s was built for a currency world: USD, GBP, EUR, with two-decimal precision. Cost accounting worked as follows:
+Conventional perpetual stock ledgers were built for a currency world: USD, GBP, EUR, with two-decimal precision. Cost accounting works as follows in the conventional model:
 
 **Unit cost = total cost of goods ÷ quantity received.**
 
@@ -64,7 +64,7 @@ Every one of these is a **real cost incurred by Canary on behalf of the merchant
 3. Allocated to the specific SKU or transaction that triggered the cost
 4. Reconciled monthly (did the actual costs match the attributed costs?)
 
-The 2002 ledger cannot do this because it cannot express costs smaller than $0.01. The solution is not to lump these costs into a blanket "miscellaneous" account (which they often are, which is how they disappear from margin calculations). The solution is to extend the ledger's cost precision.
+A two-decimal ledger cannot do this because it cannot express costs smaller than $0.01. The wrong solution is to lump these costs into a blanket "miscellaneous" account (which is how they disappear from margin calculations today). The right solution — Canary's design — is to extend the ledger's cost precision below the cent.
 
 ---
 

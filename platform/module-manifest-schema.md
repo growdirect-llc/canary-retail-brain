@@ -452,10 +452,8 @@ without benefit for this use case (manifests are small, non-streaming).
 
 ## Sources
 
-- RMS (Retek Retail Management System, 2002) — perpetual-inventory ledger pattern
 - ARTS Technical Specification — data model patterns (POSLog, Customer, Device,
   Site models)
-- Tesco Technical Library — ledger verb taxonomy and period-close workflows
 - GrowDirect Viewpoint — VSM + spine integration
 - Stock Ledger specification — movement verbs, conservation/reconciliation invariants
 - Canary-Retail-Brain modules — T/R/N/A/Q (v1), C/D/F/J (v2), S/P/L/W (v3)

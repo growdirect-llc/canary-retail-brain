@@ -44,7 +44,7 @@ The enterprise retail world runs on fiat with all the currency risk, conversion 
 
 ## The RIB Extension
 
-**RIB = Retail Inventory Batch.** The Retek/Oracle RMS concept: inventory adjustment events are not processed individually at the time they occur — they are batched, validated, and posted as structured messages to the stock ledger in domain-organized runs.
+**RIB = Retail Inventory Batch.** Inventory adjustment events are not processed individually at the time they occur — they are batched, validated, and posted as structured messages to the stock ledger in domain-organized runs.
 
 The extension: **batched JSON RIB messages, organized by domain, rolled up into the extended WAC calculation.**
 

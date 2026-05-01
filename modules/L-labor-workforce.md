@@ -50,7 +50,7 @@ ARTS does not define Employee, Scheduling, or Time Tracking specifications. Cana
 | **Employee** | Individual worker with contract type (full-time, part-time, contractor), hourly rate, location assignment, role (cashier, stocker, supervisor, manager) | Square has basic employee record; extend with scheduling/time-tracking attributes |
 | **Shift** | Scheduled work block: employee, location, start time, end time, role assignment, expected traffic tier | Retail standard scheduling model |
 | **Time Entry** | Clock in/out record with timestamp, employee, location, device, actual hours, break time, status (on-time, early, late, no-show) | Square integrates with time-clock systems; model extends to time-tracking dimension |
-| **Productivity metric** | Transactions per labor-hour, items handled per labor-hour, shrink attribution to employee (via Q case subjects), schedule adherence rate | Retek-era analytics; feed from T transaction stream + Q case subject tracking |
+| **Productivity metric** | Transactions per labor-hour, items handled per labor-hour, shrink attribution to employee (via Q case subjects), schedule adherence rate | Standard retail labor analytics; feed from T transaction stream + Q case subject tracking |
 
 Cross-reference to ARTS:
 
