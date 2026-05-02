@@ -28,7 +28,7 @@ The proprietary intelligence + evidentiary layer. Loss prevention analytics, rea
 | L2 | L3 IDs | What It Is |
 |----|--------|-----------|
 | Q.1 Substrate ingestion | Q.1.1–Q.1.5 | Reads the transaction substrate Q's rules fire against |
-| Q.2 Detection rules | Q.2.1–Q.2.10 | 23 rules, 10 families, garden-center tuned. The LP intelligence engine |
+| Q.2 Detection rules | Q.2.1–Q.2.10 | 24 rules, 11 families, garden-center tuned. The LP intelligence engine |
 | Q.3 Case management (Fox) | Q.3.1–Q.3.5 | Hash-chained INSERT-only evidence. The evidentiary backbone |
 | Q.4 Alert triggers | Q.4.1–Q.4.4 | Detection → delivery bridge |
 | Q.5 Alert delivery | Q.5.1–Q.5.4 | Real-time alert to investigator |

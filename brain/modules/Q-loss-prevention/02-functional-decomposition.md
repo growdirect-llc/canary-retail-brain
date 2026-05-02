@@ -25,7 +25,7 @@ methodology-note: "Worked-example proof for a CATz Phase II artifact (Module Fun
 
 ## Governing thesis
 
-Q is the only spine module that is **★ Canary native in every Counterpoint Solution Map**, because Counterpoint exposes the substrate (audit logs, drawer sessions, void-comp reasons, pricing decisions, category margin targets) but no detection layer. Q's functional surface is dominated by **detection rule execution** — 23 rules across 10 families — wrapped by five cross-cutting concerns (substrate ingestion, detection lifecycle, tuning, investigator surface, deployment phasing) and one vertical concern (garden-center allow-list framework).
+Q is the only spine module that is **★ Canary native in every Counterpoint Solution Map**, because Counterpoint exposes the substrate (audit logs, drawer sessions, void-comp reasons, pricing decisions, category margin targets) but no detection layer. Q's functional surface is dominated by **detection rule execution** — 24 rules across 11 families — wrapped by five cross-cutting concerns (substrate ingestion, detection lifecycle, tuning, investigator surface, deployment phasing) and one vertical concern (garden-center allow-list framework).
 
 The decomposition is observer-shaped end to end. Cashiers ring sales; Q watches the Documents arrive. Every L3 has actors drawn from `Chirp` (the rule engine), `Owl` (analyst-facing natural-language surface), `Fox` (case management), and the human store GM / LP analyst who consumes what those agents surface. There are no L3 processes whose actor is "the cashier" — that decomposition lives in Counterpoint's UI, not in Canary.
 
@@ -105,7 +105,7 @@ L4 (Implementation detail)      Lives in SDDs + module specs
 
 ## Q.2 — Detection rule execution
 
-**Purpose.** Run the rule catalog. Each rule has substrate, logic, parameters, allow-lists, and severity. This L2 organizes the 23 rules into 10 families; the detailed rule definitions live in the rule catalog companion.
+**Purpose.** Run the rule catalog. Each rule has substrate, logic, parameters, allow-lists, and severity. This L2 organizes the 24 rules into 11 families; the detailed rule definitions live in the rule catalog companion.
 
 **MECE assertion.** Every detection in Canary against a Counterpoint substrate routes to exactly one rule family. New detection categories require a new family, not stuffing into an existing one.
 

@@ -225,7 +225,7 @@ The following L3 processes are the highest-leverage targets for documentation-ba
 | P1 | D | D.1.1–D.2.6 | Inventory snapshot ingestion (7 Counterpoint endpoints) | NCR/Counterpoint Inventory endpoints — snapshot vs delta pattern |
 | P1 | D | D.3.1–D.3.8 | Transfer lifecycle (`PS_DOC` DOC_TYP=XFER) | NCR/Counterpoint Document omnibus — XFER document structure and status fields |
 | P1 | J | O.6.1–O.6.7 | Receiving lifecycle (`PS_DOC` DOC_TYP=RECVR) | NCR/Counterpoint Document omnibus — RECVR structure; receiving confirmation fields |
-| P2 | Q | Q.2.1–Q.2.10 | Detection rule evaluation (10 rule families, 23 rules) | Q rule catalog (`canary-module-q-counterpoint-rule-catalog.md`) — each rule has explicit trigger logic |
+| P2 | Q | Q.2.1–Q.2.10 | Detection rule evaluation (11 rule families, 24 rules) | Q rule catalog (`canary-module-q-counterpoint-rule-catalog.md`) — each rule has explicit trigger logic |
 | P2 | P | P.1.1–P.1.6 | Price observation via `IM_ITEM` price fields | NCR/Counterpoint `IM_ITEM` schema — PRIC_1 through PRIC_N fields, discount matrix |
 | P2 | P | P.2.1 | Promotional window inference from `PS_DOC_LIN_PRICE` variance | NCR/Counterpoint `PS_DOC_LIN_PRICE` — promotion flag fields (ASSUMPTION-P-01 must be resolved first) |
 | P2 | F | F.4.1–F.4.5 | Payment flow parsing (NSPTransaction, Secure Pay) | NCR Secure Pay API — NSPTransaction endpoint (no APIKey required; registration option) |
